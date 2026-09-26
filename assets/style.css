@@ -1,0 +1,381 @@
+/* style.css — スマホ優先(375px前後を基準)。PCでは中央寄せの1カラム。
+   アクセントカラーは #A6C4D5 のみ。白背景で文字色として使うとコントラスト不足のため、
+   ボタン背景・バッジ・枠線・選択中の状態に使い、その上の文字は #595959 にする。 */
+
+:root {
+  --accent: #A6C4D5;
+  --accent-text: #595959;
+  --text: #222222;
+  --muted: #666666;
+  --border: #dddddd;
+  --bg: #ffffff;
+  --max-width: 640px;
+  --tap-min: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* hidden属性は、個別要素の display 指定より必ず優先する */
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+  line-height: 1.6;
+}
+
+a {
+  color: #3a6d8c;
+}
+
+button {
+  font: inherit;
+}
+
+/* フォーカス表示はキーボード操作のために残す */
+:focus-visible {
+  outline: 3px solid #3a6d8c;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.site-header {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 12px 16px 8px;
+  text-align: center;
+}
+
+.site-header h1 {
+  font-size: 1.25rem;
+  margin: 0 0 4px;
+}
+
+.credit-inline {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.latest-episode {
+  font-size: 0.85rem;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  background: #f2f6f8;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  display: inline-block;
+}
+
+/* 検索欄は画面上部に固定 */
+.search-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.search-bar input[type="search"] {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.search-bar input[type="search"]:last-of-type {
+  margin-bottom: 0;
+}
+
+.active-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--accent);
+  border-radius: 8px;
+  color: var(--accent-text);
+  font-size: 0.85rem;
+}
+
+.active-filter button {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+/* 絞り込みパネル(折りたたみ式) */
+.filter-panel {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.filter-panel summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 8px 0;
+  list-style: none;
+}
+
+.filter-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-panel summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.7em;
+  transition: transform 0.15s ease;
+}
+
+.filter-panel[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.filter-panel-body {
+  padding-bottom: 12px;
+}
+
+.filter-group {
+  margin-bottom: 12px;
+}
+
+#sheet-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-btn {
+  min-height: var(--tap-min);
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.filter-btn.is-active {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: bold;
+}
+
+.episode-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.episode-range input {
+  width: 6em;
+  min-height: var(--tap-min);
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+#sort-toggle {
+  min-height: var(--tap-min);
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.error-banner {
+  background: #fdecea;
+  border: 1px solid #e0a3a3;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.error-banner ul {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+}
+
+.results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.result-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.badge-episode {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.badge-episode-nolink {
+  background: #eef3f6;
+  color: var(--muted);
+}
+
+.badge-mark {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: bold;
+}
+
+.radioname-chip {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 2px 10px;
+  min-height: 28px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.sheet-name {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.card-body .field {
+  margin: 0 0 6px;
+}
+
+.card-body .field:last-child {
+  margin-bottom: 0;
+}
+
+.field-heading {
+  font-weight: bold;
+}
+
+.field-normal .field-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.field-normal .field-value {
+  display: block;
+}
+
+mark {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+#load-more {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.site-footer {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.site-footer p {
+  margin: 4px 0;
+}
+
+/* PC幅では中央寄せの1カラムのまま、少し余白を持たせる */
+@media (min-width: 768px) {
+  .site-header,
+  .search-bar,
+  .filter-panel,
+  main,
+  .site-footer {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
