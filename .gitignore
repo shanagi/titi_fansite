@@ -1,0 +1,22 @@
+# Claude Code 関連
+CLAUDE.md
+.claude/
+
+# OS が生成するファイル
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+
+# 依存関係・ビルド成果物
+node_modules/
+dist/
+.cache/
+
+# ログ・環境変数
+*.log
+.env
+.env.local

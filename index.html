@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ラジ父 非公式ファンサイト</title>
+<meta name="description" content="TBSラジオ「真空ジェシカのラジオ父ちゃん」の投稿を検索できる非公式ファンサイトです。">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <h1>ラジ父 非公式ファンサイト</h1>
+  <p class="credit-inline">
+    データ提供:
+    <a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>さん /
+    非公式ファンサイトです
+  </p>
+  <p id="latest-episode" class="latest-episode" hidden></p>
+</header>
+
+<div class="search-bar" role="search">
+  <input id="keyword-input" type="search" placeholder="キーワードで検索(スペース区切りでAND検索)" aria-label="キーワード検索">
+  <input id="radioname-input" type="search" placeholder="ラジオネームで絞り込み" aria-label="ラジオネーム検索">
+  <div id="radioname-exact-filter" class="active-filter" hidden>
+    <span>絞り込み中: <strong id="radioname-exact-value"></strong></span>
+    <button id="radioname-exact-clear" type="button">解除</button>
+  </div>
+</div>
+
+<details id="filter-panel" class="filter-panel">
+  <summary>絞り込み</summary>
+  <div class="filter-panel-body">
+    <div class="filter-group" id="sheet-filter" role="group" aria-label="シート別絞り込み"></div>
+    <div class="filter-group episode-range">
+      <label for="episode-from">放送回</label>
+      <input id="episode-from" type="number" inputmode="numeric" placeholder="から" aria-label="放送回(から)">
+      <span>〜</span>
+      <input id="episode-to" type="number" inputmode="numeric" placeholder="まで" aria-label="放送回(まで)">
+      <span>回</span>
+    </div>
+  </div>
+</details>
+
+<main>
+  <div class="results-header">
+    <span id="result-count" aria-live="polite"></span>
+    <button id="sort-toggle" type="button">並び替え: 記載順</button>
+  </div>
+  <div id="error-banner" class="error-banner" hidden></div>
+  <ul id="results-list" class="results-list"></ul>
+  <button id="load-more" type="button" hidden>さらに表示</button>
+</main>
+
+<footer class="site-footer">
+  <p>データ提供: <a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>さん</p>
+  <p><a href="https://docs.google.com/spreadsheets/d/1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo/htmlview" target="_blank" rel="noopener">元スプレッドシート</a></p>
+  <p>このサイトは非公式のファンサイトです。TBSラジオ・真空ジェシカ・出演者とは関係ありません。</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
