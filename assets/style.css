@@ -1,5 +1,6 @@
 /* style.css — スマホ優先(375px前後を基準)。PCでは中央寄せの1カラム。
-   雰囲気: 柔らかいミニマル。背景は白地に細い黒の格子(法被の柄)。文字や部品は白い面の上に載せる。
+   雰囲気: 柔らかいミニマル。背景は法被(石畳の柄)のイメージ。柄はページの両端だけに見せ、
+   文字や部品は、両側に襟のような太い帯を持つ無地のカラム(.page)の上に載せる。
    色: 水色 #A6C4D5 を主役に、濃い青みグレー(ボタン・見出し)と暖色(ハイライト)を補助に使う。
    書体: 本文 = Zen Kaku Gothic New(400のみ) / 見出し・太字 = Zen Maru Gothic(700のみ)。
    読み込む太さを増やすと転送量が増えるため、太字は必ず Zen Maru Gothic 700 にそろえる。 */
@@ -14,6 +15,13 @@
   --on-warm: #4A3A10;
   --title-red: #DC0000;     /* タイトルの「父」のみ */
 
+  --pattern-line: #2A3A7A;  /* 柄の線: 少し青みのある紺(法被の写真から採色) */
+  --collar: #1C2A50;        /* 襟の帯の色 */
+  --collar-width: 10px;
+  --plain: #F3F8FA;         /* カラムの無地の色(白いカードが浮いて見える淡い水色) */
+  --outer: 12px;            /* 柄が見える、ページ外側の余白 */
+  --block: 36px;            /* 柄の1ブロックの大きさ */
+
   --text: #222222;
   --muted: #566573;
   --border: #D9E2E8;
@@ -21,9 +29,8 @@
 
   --shadow: 0 2px 10px rgba(59, 85, 104, 0.14);
   --radius: 16px;
-  --grid: 24px;             /* 格子の間隔 */
   --max-width: 640px;
-  --gutter: 16px;
+  --gutter: 12px;
   --tap-min: 44px;
 
   --font-body: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
@@ -43,19 +50,30 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
-/* 背景: 白地に細い黒の格子 */
+/* 背景: 石畳(網代)の柄。横長の長方形が2つ並ぶブロックと、縦長の長方形が2つ並ぶブロックが、市松状に交互に並ぶ。
+   画像ファイルは使わず、CSSに埋め込んだ小さなSVG(96×96・2px線)を敷き詰めている。 */
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(to right, #000000 1px, transparent 1px),
-    linear-gradient(to bottom, #000000 1px, transparent 1px);
-  background-size: var(--grid) var(--grid);
+  background-color: #FFFFFF;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cg fill='%232A3A7A'%3E%3Crect x='0' y='0' width='2' height='96'/%3E%3Crect x='48' y='0' width='2' height='96'/%3E%3Crect x='0' y='0' width='96' height='2'/%3E%3Crect x='0' y='48' width='96' height='2'/%3E%3Crect x='0' y='23' width='48' height='2'/%3E%3Crect x='72' y='0' width='2' height='48'/%3E%3Crect x='24' y='48' width='2' height='48'/%3E%3Crect x='48' y='71' width='48' height='2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: calc(var(--block) * 2) calc(var(--block) * 2);
+  background-position: center top;
   color: var(--text);
   font-family: var(--font-body);
   font-weight: 400;
   line-height: 1.7;
+}
+
+/* 無地のカラム。両側の太い帯は、法被の襟のイメージ。この中には柄を入れない */
+.page {
+  width: calc(100% - var(--outer) * 2);
+  max-width: 732px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: var(--plain);
+  border-left: var(--collar-width) solid var(--collar);
+  border-right: var(--collar-width) solid var(--collar);
 }
 
 a {
@@ -104,9 +122,9 @@ main,
   margin: 0;
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   line-height: 1.3;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: #000000;
 }
 
@@ -655,8 +673,15 @@ strong,
 }
 
 @media (min-width: 768px) {
+  :root {
+    --collar-width: 14px;
+    --gutter: 14px;
+    --block: 48px;
+  }
+
   .site-title {
     font-size: 2.1rem;
+    letter-spacing: 0.04em;
   }
 
   .header-band {
