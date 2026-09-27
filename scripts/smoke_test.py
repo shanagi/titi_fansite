@@ -75,10 +75,27 @@ def main():
         )
         if title_colors["h1"] != "rgb(0, 0, 0)" or title_colors["red"] != "rgb(220, 0, 0)" or title_colors["redText"] != "父":
             fail(f"タイトルの色が仕様(黒、「父」のみ赤 #DC0000)と違います: {title_colors}")
-        body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
-        if body_bg.count("linear-gradient") < 2:
-            fail(f"背景の格子が設定されていません: {body_bg!r}")
-        print("OK: タイトルの色 / 背景の格子")
+        # 背景の柄はページ全体に敷き、カラム(.page)の中は無地(柄を入れない)。両側に襟の帯がある
+        bg = page.evaluate(
+            """() => {
+              const body = getComputedStyle(document.body);
+              const page = document.querySelector('.page');
+              const ps = getComputedStyle(page);
+              return { bodyImage: body.backgroundImage, pageImage: ps.backgroundImage,
+                       left: ps.borderLeftWidth, right: ps.borderRightWidth,
+                       leftColor: ps.borderLeftColor,
+                       inside: ['.search-bar', 'main', '.site-footer'].every(s => page.contains(document.querySelector(s))) };
+            }"""
+        )
+        if "url(" not in bg["bodyImage"]:
+            fail(f"背景の柄が設定されていません: {bg['bodyImage'][:80]!r}")
+        if bg["pageImage"] != "none":
+            fail(f"カラムの中に柄が入っています(無地にする): {bg['pageImage'][:80]!r}")
+        if bg["left"] == "0px" or bg["right"] == "0px" or bg["leftColor"] == "rgba(0, 0, 0, 0)":
+            fail(f"カラムの両側に襟の帯がありません: {bg}")
+        if not bg["inside"]:
+            fail("検索欄・結果・フッターが、無地のカラムの外に出ています。")
+        print("OK: タイトルの色 / 柄の背景・無地のカラム・襟の帯")
         fonts_ok = page.evaluate(
             """async () => {
               await document.fonts.ready;
