@@ -12,9 +12,14 @@
 //   badge   … 値が入っていればバッジとして表示(本文には出さない)。検索対象外。
 //   exclude … 表示も検索もしない(例: タイトルコール)。
 //
-// シート設定の subFilters(任意): そのシートの中で、印列(mode: 'badge')に値が入っている行だけを出す、
-//   追加の絞り込みボタン。ボタンは、そのシートのボタンの直後に並ぶ。
-//   { key: 識別子, label: ボタンの表示名, markColumn: 印列の列名 }
+// シート設定の subFilters(任意): そのシートを選んだときだけ現れる、追加の絞り込み。
+//   type: 'mark'  … 印列(mode: 'badge')に値が入っている行だけを出す、on/offのボタン。
+//                    { key, type: 'mark', column: 印列の列名, label: ボタンの表示名 }
+//   type: 'value' … ある列の値ごとに選ぶボタン(「すべて」+ options)。
+//                    { key, type: 'value', column: 列名, label: 絞り込みの見出し,
+//                      options: [{ value: 一致させる値, label: ボタンの表示名 }, ...,
+//                                { value: '__other__', label: '...', other: true } ] }
+//                    other: true の選択肢は、options に書かれた値のどれとも一致しない、空でない値をまとめて拾う。
 //
 // フィールドの breakAfter(任意・正規表現):
 //   一致した箇所の直後で改行する。スプレッドシート側の改行は空白として扱う(従来どおり)。
@@ -72,7 +77,7 @@ const CONFIG = {
     {
       name: 'ラジ父大喜利',
       subFilters: [
-        { key: 'お眼鏡賞', label: 'ラジ父大喜利（お眼鏡賞）', markColumn: 'お眼鏡賞' },
+        { key: 'mark', type: 'mark', column: 'お眼鏡賞', label: 'お眼鏡賞のみ表示' },
       ],
       fields: [
         { column: 'お題', label: 'お題', mode: 'normal' },
@@ -89,6 +94,9 @@ const CONFIG = {
     },
     {
       name: '俺にもありました',
+      subFilters: [
+        { key: 'mark', type: 'mark', column: 'おまいは俺か', label: 'おまいは俺かのみ表示' },
+      ],
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
         { column: '反応', label: '反応', mode: 'normal' },
@@ -109,6 +117,19 @@ const CONFIG = {
     },
     {
       name: '韻豆',
+      subFilters: [
+        {
+          key: 'answer',
+          type: 'value',
+          column: '正解',
+          label: '正解',
+          options: [
+            { value: '韻豆', label: '韻豆' },
+            { value: '偽韻豆', label: '偽韻豆' },
+            { value: '__other__', label: 'その他', other: true },
+          ],
+        },
+      ],
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
         { column: 'ガクの予想', label: 'ガクの予想', mode: 'normal' },
@@ -117,6 +138,18 @@ const CONFIG = {
     },
     {
       name: 'ガクにもわかりますか？',
+      subFilters: [
+        {
+          key: 'wakaru',
+          type: 'value',
+          column: 'わかりますか？',
+          label: 'わかりますか？',
+          options: [
+            { value: 'わかる', label: 'わかる' },
+            { value: 'わからない', label: 'わからない' },
+          ],
+        },
+      ],
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
         { column: 'わかりますか？', label: 'わかりますか？', mode: 'normal' },

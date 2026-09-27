@@ -220,7 +220,7 @@ def main():
         # (ボタン一覧は絞り込み変更のたびに再描画されるため、都度クエリし直す)
         sheet_buttons = page.query_selector_all(".filter-btn")
         expected_order = [
-            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ラジ父大喜利（お眼鏡賞）", "ワーキャー", "俺にもありました",
+            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャー", "俺にもありました",
             "優しいゴージャスさん", "パンダマン", "韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
         ]
         actual_order = [b.text_content().strip() for b in sheet_buttons]
@@ -273,7 +273,7 @@ def main():
         page.fill("#episode-to", "279")
         page.wait_for_timeout(500)
         sheet_seq = page.eval_on_selector_all(".result-card .sheet-chip", "els => els.map(e => e.textContent.trim())")
-        order_idx = {n: i for i, n in enumerate(n for n in expected_order[1:] if "（" not in n)}
+        order_idx = {n: i for i, n in enumerate(expected_order[1:])}
         idx = [order_idx[n] for n in sheet_seq]
         if idx != sorted(idx):
             fail(f"投稿の記載順が、絞り込みボタンのシートの並びと違います: {sheet_seq}")
@@ -288,46 +288,111 @@ def main():
             fail("免責の文言が、冒頭とフッターで「" + disclaimer + "」にそろっていません。")
         print("OK: 免責の文言(冒頭・フッター)")
 
-        # 「ラジ父大喜利（お眼鏡賞）」: お眼鏡賞の印が付いた投稿だけを表示する(件数は、元のスプレッドシートから数えた値と照合)
+        # 追加の絞り込み(サブフィルター): シートを選んだときだけ現れる
         import csv, io, urllib.parse, urllib.request
+
         sheet_id = "1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo"
-        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?" + urllib.parse.urlencode(
-            {"tqx": "out:csv", "headers": "1", "sheet": "ラジ父大喜利"}
-        )
-        rows = list(csv.reader(io.StringIO(urllib.request.urlopen(url).read().decode("utf-8"))))
-        hdr = rows[0]
-        i_mark, i_odai, i_neta = hdr.index("お眼鏡賞"), hdr.index("お題"), hdr.index("ネタ")
-        expected_marked = sum(
-            1 for r in rows[1:] if len(r) > i_mark and r[i_mark].strip() and (r[i_odai].strip() or r[i_neta].strip())
-        )
+
+        def fetch_rows(sheet_name):
+            url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?" + urllib.parse.urlencode(
+                {"tqx": "out:csv", "headers": "1", "sheet": sheet_name}
+            )
+            rows = list(csv.reader(io.StringIO(urllib.request.urlopen(url).read().decode("utf-8"))))
+            return rows[0], rows[1:]
+
         if not page.evaluate("document.getElementById('filter-panel').open"):
             page.click("#filter-panel summary")
-        page.click('.filter-btn[data-sheet="ラジ父大喜利::お眼鏡賞"]')
-        page.wait_for_timeout(500)
-        count_text = (page.text_content("#result-count") or "").strip()
-        m_mark = re.search(r"(\d+)件", count_text)
-        card_info = page.evaluate(
-            """() => {
-              const cards = [...document.querySelectorAll('.result-card')];
-              return { n: cards.length,
-                       sheets: [...new Set(cards.map(c => c.querySelector('.sheet-chip').textContent.trim()))],
-                       allMarked: cards.every(c => [...c.querySelectorAll('.badge-mark')].some(b => b.textContent.trim() === 'お眼鏡賞')),
-                       active: document.querySelector('.filter-btn.is-active').textContent.trim() };
-            }"""
-        )
-        if not m_mark or int(m_mark.group(1)) != expected_marked:
-            fail(f"お眼鏡賞の件数が、スプレッドシートの{expected_marked}件と一致しません: {count_text!r}")
-        if card_info["sheets"] != ["ラジ父大喜利"] or not card_info["allMarked"] or card_info["active"] != "ラジ父大喜利（お眼鏡賞）":
-            fail(f"お眼鏡賞の絞り込みで、印のない投稿が混ざっています: {card_info}")
-        # 「ラジ父大喜利」だけを選ぶと、印のない投稿も出る(=お眼鏡賞より多い)
-        page.click('.filter-btn[data-sheet="ラジ父大喜利"]')
-        page.wait_for_timeout(500)
-        all_count = int(re.search(r"(\d+)件", page.text_content("#result-count") or "").group(1))
-        if all_count <= expected_marked:
-            fail(f"「ラジ父大喜利」の件数({all_count})が、お眼鏡賞({expected_marked})より多くありません。")
+
+        # 「すべて」では、追加の絞り込みは出ない
         page.click('.filter-btn[data-sheet="ALL"]')
         page.wait_for_timeout(300)
-        print(f"OK: ラジ父大喜利（お眼鏡賞）の絞り込み ({expected_marked}件 / ラジ父大喜利全体 {all_count}件)")
+        if page.is_visible("#sub-filter"):
+            fail("「すべて」を選んでいるのに、追加の絞り込みが表示されています。")
+
+        def select_sheet(name):
+            page.click(f'.filter-btn[data-sheet="{name}"]')
+            page.wait_for_timeout(400)
+
+        def sub_count():
+            m = re.search(r"(\d+)件", page.text_content("#result-count") or "")
+            return int(m.group(1)) if m else None
+
+        # ラジ父大喜利 → 「お眼鏡賞のみ表示」(on/off)
+        hdr, rows = fetch_rows("ラジ父大喜利")
+        i_mark, i_odai, i_neta = hdr.index("お眼鏡賞"), hdr.index("お題"), hdr.index("ネタ")
+        expect_marked = sum(1 for r in rows if len(r) > i_mark and r[i_mark].strip() and (r[i_odai].strip() or r[i_neta].strip()))
+        select_sheet("ラジ父大喜利")
+        all_count = sub_count()
+        if not page.is_visible('.filter-btn-sub[data-subfilter="mark"]'):
+            fail("「ラジ父大喜利」を選んでも、「お眼鏡賞のみ表示」が現れません。")
+        page.click('.filter-btn-sub[data-subfilter="mark"]')
+        page.wait_for_timeout(400)
+        marked_count = sub_count()
+        all_marked = page.evaluate(
+            "[...document.querySelectorAll('.result-card')].every(c => [...c.querySelectorAll('.badge-mark')].some(b => b.textContent.trim() === 'お眼鏡賞'))"
+        )
+        if marked_count != expect_marked or not all_marked or all_count <= marked_count:
+            fail(f"「お眼鏡賞のみ表示」が仕様どおりに絞り込めていません: 全体={all_count} お眼鏡賞={marked_count}(期待{expect_marked}) 印のみ={all_marked}")
+        page.click('.filter-btn-sub[data-subfilter="mark"]')  # off に戻す
+        page.wait_for_timeout(300)
+        if sub_count() != all_count:
+            fail("「お眼鏡賞のみ表示」をもう一度押しても、offに戻りません。")
+        print(f"OK: ラジ父大喜利「お眼鏡賞のみ表示」({marked_count}件 / 全体{all_count}件)")
+
+        # 俺にもありました → 「おまいは俺かのみ表示」(on/off)
+        hdr, rows = fetch_rows("俺にもありました")
+        i_mark, i_neta, i_han = hdr.index("おまいは俺か"), hdr.index("ネタ"), hdr.index("反応")
+        expect_marked = sum(1 for r in rows if len(r) > i_mark and r[i_mark].strip() and (r[i_neta].strip() or r[i_han].strip()))
+        select_sheet("俺にもありました")
+        page.click('.filter-btn-sub[data-subfilter="mark"]')
+        page.wait_for_timeout(400)
+        marked_count = sub_count()
+        if marked_count != expect_marked:
+            fail(f"俺にもありました「おまいは俺かのみ表示」の件数が違います: {marked_count}(期待{expect_marked})")
+        print(f"OK: 俺にもありました「おまいは俺かのみ表示」({marked_count}件)")
+
+        # 韻豆 → 「正解」で絞り込み(韻豆・偽韻豆・その他)
+        hdr, rows = fetch_rows("韻豆")
+        i_ans, i_neta = hdr.index("正解"), hdr.index("ネタ")
+        vals = [r[i_ans].strip() for r in rows if len(r) > i_ans and r[i_ans].strip() and (len(r) > i_neta and r[i_neta].strip())]
+        expect = {
+            "韻豆": vals.count("韻豆"),
+            "偽韻豆": vals.count("偽韻豆"),
+            "その他": sum(1 for v in vals if v not in ("韻豆", "偽韻豆")),
+        }
+        select_sheet("韻豆")
+        for label, key in [("韻豆", "韻豆"), ("偽韻豆", "偽韻豆"), ("その他", "__other__")]:
+            page.click(f'.filter-btn-sub[data-subfilter="answer"][data-subvalue="{key}"]')
+            page.wait_for_timeout(400)
+            got = sub_count()
+            if got != expect[label]:
+                fail(f"韻豆「正解」の絞り込み({label})の件数が違います: {got}(期待{expect[label]})")
+        page.click('.filter-btn-sub[data-subfilter="answer"][data-subvalue=""]')  # すべてに戻す
+        page.wait_for_timeout(300)
+        print(f"OK: 韻豆「正解」の絞り込み (韻豆{expect['韻豆']}件 / 偽韻豆{expect['偽韻豆']}件 / その他{expect['その他']}件)")
+
+        # ガクにもわかりますか？ → 「わかりますか？」で絞り込み(わかる・わからない)
+        hdr, rows = fetch_rows("ガクにもわかりますか？")
+        i_ans, i_neta = hdr.index("わかりますか？"), hdr.index("ネタ")
+        expect_yes = sum(1 for r in rows if len(r) > i_ans and r[i_ans].strip() == "わかる" and r[i_neta].strip())
+        expect_no = sum(1 for r in rows if len(r) > i_ans and r[i_ans].strip() == "わからない" and r[i_neta].strip())
+        select_sheet("ガクにもわかりますか？")
+        page.click('.filter-btn-sub[data-subfilter="wakaru"][data-subvalue="わかる"]')
+        page.wait_for_timeout(400)
+        got_yes = sub_count()
+        page.click('.filter-btn-sub[data-subfilter="wakaru"][data-subvalue="わからない"]')
+        page.wait_for_timeout(400)
+        got_no = sub_count()
+        if got_yes != expect_yes or got_no != expect_no:
+            fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
+        print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
+
+        # シートを切り替えると、追加の絞り込みは消える(選択も解除される)
+        select_sheet("パンダマン")
+        if page.is_visible("#sub-filter"):
+            fail("追加の絞り込みのない「パンダマン」で、追加の絞り込みが表示されています。")
+        page.click('.filter-btn[data-sheet="ALL"]')
+        page.wait_for_timeout(300)
 
         # 表記: ページ内(投稿の本文を除く)の「ポッドキャスト」「podcast」は、「Podcast」にそろえる
         notation = page.evaluate(

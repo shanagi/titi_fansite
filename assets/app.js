@@ -11,6 +11,7 @@
     radioQuery: '',
     radioExact: null,
     activeSheet: 'ALL',
+    subFilter: null, // { key, value } … 現在の activeSheet の追加の絞り込み(シートを切り替えると null に戻る)
     epFrom: null,
     epTo: null,
     sortMode: 'original', // 'original' | 'asc' | 'desc'
@@ -290,6 +291,7 @@
     const searching = isSearching();
     const latestNo = latestEpisodeNo();
     renderActiveFilters();
+    renderSubFilters();
 
     const filtered = getFiltered();
     const sorted = getSorted(filtered);
@@ -359,12 +361,22 @@
     const radioQueryNorm = normalizeText(state.radioQuery);
 
     return allRecords.filter((r) => {
-      if (state.activeSheet !== 'ALL') {
-        const sub = findSubFilter(state.activeSheet);
+      if (state.activeSheet !== 'ALL' && r.sheetName !== state.activeSheet) return false;
+
+      if (state.subFilter !== null) {
+        const sub = findActiveSubFilter();
         if (sub) {
-          if (r.sheetName !== sub.sheetName || !hasMark(r, sub.markColumn)) return false;
-        } else if (r.sheetName !== state.activeSheet) {
-          return false;
+          if (sub.type === 'mark') {
+            if (!hasMark(r, sub.column)) return false;
+          } else if (sub.type === 'value') {
+            const val = getColumnValue(r, sub.column);
+            if (state.subFilter.value === '__other__') {
+              const explicitValues = sub.options.filter((o) => !o.other).map((o) => o.value);
+              if (val === '' || explicitValues.includes(val)) return false;
+            } else if (val !== state.subFilter.value) {
+              return false;
+            }
+          }
         }
       }
 
@@ -439,33 +451,28 @@
         : '');
   }
 
-  // シートの中の追加の絞り込み(印列に値がある行だけ)。ボタンの値は「シート名::key」の形にする
-  function subFilterValue(sheetName, key) {
-    return `${sheetName}::${key}`;
-  }
-
-  function findSubFilter(value) {
-    for (const s of CONFIG.sheets) {
-      for (const sub of s.subFilters || []) {
-        if (subFilterValue(s.name, sub.key) === value) return { sheetName: s.name, markColumn: sub.markColumn };
-      }
-    }
-    return null;
-  }
-
   function hasMark(record, column) {
     return record.parts.some((p) => p.column === column && p.mode === 'badge' && p.value !== '');
   }
 
+  function getColumnValue(record, column) {
+    const p = record.parts.find((pp) => pp.column === column);
+    return p ? p.value : '';
+  }
+
+  // 現在の activeSheet に定義されている、state.subFilter.key と一致する追加の絞り込みの定義
+  function findActiveSubFilter() {
+    if (state.subFilter === null) return null;
+    const sheetConfig = CONFIG.sheets.find((s) => s.name === state.activeSheet);
+    if (!sheetConfig) return null;
+    return (sheetConfig.subFilters || []).find((sub) => sub.key === state.subFilter.key) || null;
+  }
+
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
-    const buttons = [{ name: 'ALL', label: 'すべて' }];
-    CONFIG.sheets.forEach((s) => {
-      buttons.push({ name: s.name, label: s.displayName || s.name });
-      (s.subFilters || []).forEach((sub) => {
-        buttons.push({ name: subFilterValue(s.name, sub.key), label: sub.label });
-      });
-    });
+    const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
+      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
+    );
     container.innerHTML = buttons
       .map(({ name, label }) => {
         const active = state.activeSheet === name ? ' is-active' : '';
@@ -508,6 +515,49 @@
       .join('');
   }
 
+  // シートを選んだときだけ現れる、追加の絞り込み(お眼鏡賞のみ表示、正解で絞り込む、など)
+  function renderSubFilters() {
+    const container = document.getElementById('sub-filter');
+    const sheetConfig = CONFIG.sheets.find((s) => s.name === state.activeSheet);
+    const subs = sheetConfig ? sheetConfig.subFilters || [] : [];
+    if (!subs.length) {
+      container.hidden = true;
+      container.innerHTML = '';
+      return;
+    }
+    container.hidden = false;
+    container.innerHTML = subs
+      .map((sub) => {
+        if (sub.type === 'mark') {
+          const active = state.subFilter && state.subFilter.key === sub.key ? ' is-active' : '';
+          return (
+            `<div class="sub-filter-group">` +
+            `<button type="button" class="filter-btn filter-btn-sub${active}" data-subfilter="${escapeHtml(sub.key)}" data-subvalue="">` +
+            `${escapeHtml(sub.label)}</button></div>`
+          );
+        }
+        // type: 'value' … 「すべて」+ options
+        const optionButtons = [{ value: '', label: 'すべて' }].concat(sub.options)
+          .map((opt) => {
+            const isAll = opt.value === '';
+            const active =
+              (isAll && (!state.subFilter || state.subFilter.key !== sub.key)) ||
+              (!isAll && state.subFilter && state.subFilter.key === sub.key && state.subFilter.value === opt.value)
+                ? ' is-active'
+                : '';
+            return (
+              `<button type="button" class="filter-btn filter-btn-sub${active}" data-subfilter="${escapeHtml(sub.key)}" data-subvalue="${escapeHtml(opt.value)}">` +
+              `${escapeHtml(opt.label)}</button>`
+            );
+          })
+          .join('');
+        return (
+          `<div class="sub-filter-group"><span class="sub-filter-label">${escapeHtml(sub.label)}で絞り込み：</span>${optionButtons}</div>`
+        );
+      })
+      .join('');
+  }
+
   // ---------- イベント ----------
 
   function resetPaging() {
@@ -520,6 +570,7 @@
     state.radioQuery = '';
     state.radioExact = null;
     state.activeSheet = 'ALL';
+    state.subFilter = null;
     state.epFrom = null;
     state.epTo = null;
     state.sortMode = 'original';
@@ -586,7 +637,25 @@
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
       state.activeSheet = btn.dataset.sheet;
+      state.subFilter = null;
       renderSheetFilterButtons();
+      resetPaging();
+      render();
+    });
+
+    // 追加の絞り込み(サブフィルター)のボタン
+    document.getElementById('sub-filter').addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-btn-sub');
+      if (!btn) return;
+      const key = btn.dataset.subfilter;
+      const sheetConfig = CONFIG.sheets.find((s) => s.name === state.activeSheet);
+      const sub = sheetConfig && (sheetConfig.subFilters || []).find((s2) => s2.key === key);
+      if (!sub) return;
+      if (sub.type === 'mark') {
+        state.subFilter = state.subFilter && state.subFilter.key === key ? null : { key, value: true };
+      } else {
+        state.subFilter = btn.dataset.subvalue === '' ? null : { key, value: btn.dataset.subvalue };
+      }
       resetPaging();
       render();
     });
