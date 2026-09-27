@@ -247,6 +247,77 @@ def main():
         page.fill("#episode-to", "")
         page.wait_for_timeout(300)
 
+        # ---- 投稿カードの見出し・右下のリンク ----
+        page.fill("#keyword-input", "ネタ")
+        page.wait_for_timeout(500)
+        head = page.evaluate(
+            """() => {
+              const card = document.querySelector('.result-card');
+              const pick = (sel) => { const e = card.querySelector(sel); const s = getComputedStyle(e);
+                return { text: e.textContent.trim(), border: s.borderTopWidth + ' ' + s.borderTopColor, radius: s.borderTopLeftRadius,
+                         tag: e.tagName, top: Math.round(e.getBoundingClientRect().top) }; };
+              return { sheet: pick('.sheet-chip'), episode: pick('.badge-episode'), radio: pick('.radioname-chip'),
+                       hasEpisodeAnchor: !!card.querySelector('a.badge-episode') };
+            }"""
+        )
+        same = {(head[k]["border"], head[k]["radius"]) for k in ("sheet", "episode", "radio")}
+        if len(same) != 1:
+            fail(f"コーナー名・放送回・ラジオネームが同じ丸枠になっていません: {head}")
+        if head["sheet"]["top"] != head["episode"]["top"]:
+            print("WARN: 見出しの丸枠が折り返して2行になっています(名前が長い場合は正常)。")
+        if not head["radio"]["text"].startswith("ラジオネーム："):
+            fail(f"ラジオネームの前に「ラジオネーム：」が付いていません: {head['radio']['text']!r}")
+        if head["hasEpisodeAnchor"] or head["episode"]["tag"] != "BUTTON":
+            fail(f"放送回がリンクのままです(絞り込みボタンにする): {head['episode']}")
+        print("OK: 見出しの丸枠(コーナー名・放送回・ラジオネーム)と「ラジオネーム：」の表記")
+
+        # カードの右下に「この回をpodcastで聞く」のリンク
+        pod = page.evaluate(
+            """() => {
+              const card = [...document.querySelectorAll('.result-card')].find(c => c.querySelector('.podcast-link'));
+              if (!card) return null;
+              const a = card.querySelector('.podcast-link').getBoundingClientRect(); const c = card.getBoundingClientRect();
+              return { text: card.querySelector('.podcast-link').textContent.trim(), href: card.querySelector('.podcast-link').href,
+                       target: card.querySelector('.podcast-link').target,
+                       right: c.right - a.right, bottom: c.bottom - a.bottom, leftHalf: a.left > c.left + c.width / 2 };
+            }"""
+        )
+        if not pod or pod["text"] != "この回をpodcastで聞く" or "podcasts.apple.com" not in pod["href"] or pod["target"] != "_blank":
+            fail(f"カード右下のpodcastリンクが仕様と違います: {pod}")
+        if pod["right"] > 30 or pod["bottom"] > 30:
+            fail(f"podcastリンクがカードの右下にありません: {pod}")
+        print("OK: カード右下の「この回をpodcastで聞く」リンク")
+
+        # 放送回のタップは、その回だけへの絞り込み
+        ep_label = page.eval_on_selector("button.badge-episode", "e => e.textContent.trim()")
+        page.click("button.badge-episode")
+        page.wait_for_timeout(500)
+        labels = set(page.eval_on_selector_all(".result-card .badge-episode", "els => els.map(e => e.textContent.trim())"))
+        vals = page.evaluate("[document.getElementById('episode-from').value, document.getElementById('episode-to').value]")
+        chip_text = page.text_content("#active-filters") or ""
+        num = ep_label.rstrip("回")
+        if labels != {ep_label} or vals != [num, num] or f"第{num}回" not in chip_text:
+            fail(f"放送回のタップで絞り込めていません: labels={labels} inputs={vals} chip={chip_text!r}")
+        page.click('.active-chip-clear[data-clear="episode"]')
+        page.wait_for_timeout(400)
+        vals2 = page.evaluate("[document.getElementById('episode-from').value, document.getElementById('episode-to').value]")
+        if vals2 != ["", ""] or page.is_visible('.active-chip-clear[data-clear="episode"]'):
+            fail("放送回の絞り込みを「解除」できません。")
+        print(f"OK: 放送回のタップで絞り込み・解除 ({ep_label})")
+
+        # ラジオネームのタップは、その人だけへの絞り込み(完全一致)
+        name = page.get_attribute(".radioname-chip", "data-radioname")
+        page.click(".radioname-chip")
+        page.wait_for_timeout(500)
+        names = set(page.eval_on_selector_all(".result-card .radioname-chip", "els => els.map(e => e.dataset.radioname)"))
+        if names != {name} or f"ラジオネーム：{name}" not in (page.text_content("#active-filters") or ""):
+            fail(f"ラジオネームのタップで絞り込めていません: {names}")
+        page.click('.active-chip-clear[data-clear="radio"]')
+        page.wait_for_timeout(300)
+        page.fill("#keyword-input", "")
+        page.wait_for_timeout(400)
+        print("OK: ラジオネームのタップで絞り込み・解除")
+
         # リセットボタン: トップでは出ず、検索・絞り込み中だけ出る。押すとすべて初期状態に戻る
         if page.is_visible("#reset-all"):
             fail("検索していないのに、リセットボタンが表示されています。")
@@ -295,12 +366,12 @@ def main():
             fail(f"タイトルをタップしても最初の画面に戻りません: {back}")
         print("OK: タイトルのタップで最初の画面に戻る")
 
-        # 放送回バッジのリンク
-        badge_links = page.query_selector_all("a.badge-episode")
-        if badge_links:
-            print(f"OK: 放送回バッジにリンクあり ({len(badge_links)}件)")
+        # カードのpodcastリンク(整数の回で episodes.json にデータがある場合)
+        pod_links = page.query_selector_all(".result-card .podcast-link")
+        if pod_links:
+            print(f"OK: 「この回をpodcastで聞く」リンクあり ({len(pod_links)}件)")
         else:
-            print("WARN: リンク付きの放送回バッジが見つかりません(episodes.jsonが空の場合は正常)。")
+            print("WARN: podcastリンクが見つかりません(episodes.jsonが空の場合は正常)。")
 
         # ---- フッター(一番下にクレジット) ----
         footer_ps = page.eval_on_selector_all(".site-footer p", "els => els.map(e => e.textContent.trim())")
