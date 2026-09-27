@@ -296,6 +296,7 @@
     // トップ: 検索窓 → 最新回のバナー → 最新回の投稿。検索を実施したときだけ検索結果を出す。
     banner.hidden = searching || !latestBannerReady;
     sortToggle.hidden = !searching;
+    document.getElementById('reset-all').hidden = !searching;
 
     if (searching) {
       resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
@@ -440,6 +441,25 @@
     state.visibleCount = PAGE_SIZE;
   }
 
+  // 検索・絞り込み・並び替えをすべて初期状態に戻す(=トップ画面に戻る)
+  function resetAll() {
+    state.keyword = '';
+    state.radioQuery = '';
+    state.radioExact = null;
+    state.activeSheet = 'ALL';
+    state.epFrom = null;
+    state.epTo = null;
+    state.sortMode = 'original';
+    resetPaging();
+    ['keyword-input', 'radioname-input', 'episode-from', 'episode-to'].forEach((id) => {
+      document.getElementById(id).value = '';
+    });
+    updateSortButtonLabel();
+    updateRadioExactUi();
+    renderSheetFilterButtons();
+    render();
+  }
+
   function setupEvents() {
     const keywordInput = document.getElementById('keyword-input');
     const radioInput = document.getElementById('radioname-input');
@@ -449,6 +469,7 @@
     const loadMore = document.getElementById('load-more');
     const sheetFilter = document.getElementById('sheet-filter');
     const radioExactClear = document.getElementById('radioname-exact-clear');
+    const resetAllBtn = document.getElementById('reset-all');
     const resultsList = document.getElementById('results-list');
 
     const onKeyword = debounce(() => {
@@ -502,6 +523,16 @@
       updateRadioExactUi();
       resetPaging();
       render();
+    });
+
+    resetAllBtn.addEventListener('click', resetAll);
+
+    // タイトルをタップすると、最初の画面(トップ)に戻る: 検索・絞り込みをすべて解除し、絞り込みパネルを閉じて、先頭へ
+    document.getElementById('site-title-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      resetAll();
+      document.getElementById('filter-panel').open = false;
+      window.scrollTo(0, 0);
     });
 
     resultsList.addEventListener('click', (e) => {
