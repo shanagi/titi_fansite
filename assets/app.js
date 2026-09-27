@@ -238,7 +238,7 @@
     // カード右下: この回のApple Podcastsへのリンク(紐づけできない回は出さない)
     const link = episodeLink(record);
     const footer = link
-      ? `<div class="card-footer"><a class="podcast-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">この回をpodcastで聞く</a></div>`
+      ? `<div class="card-footer"><a class="podcast-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">この回をPodcastで聞く</a></div>`
       : '';
 
     li.innerHTML = `
