@@ -59,13 +59,28 @@
 
   // ---------- データ取得 ----------
 
+  // [[見出し...], [値...], ...] を [{見出し: 値, ...}, ...] に変換する
+  function rowsToObjects(matrix) {
+    if (!matrix.length) return [];
+    const headers = matrix[0].map((h) => (h == null ? '' : String(h).trim()));
+    return matrix.slice(1).map((cells) => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        if (h) obj[h] = cells[i] == null ? '' : cells[i];
+      });
+      return obj;
+    });
+  }
+
   function loadSheet(sheetConfig) {
     return new Promise((resolve) => {
       Papa.parse(CONFIG.csvUrl(sheetConfig.name), {
         download: true,
-        header: true,
+        // header:true だと、見出し行に空の列が多いシートで最初のデータ行が欠落するため、
+        // 生の行として読み、見出しは自前で組み立てる(空見出しの列は無視する)。
+        header: false,
         skipEmptyLines: true,
-        complete: (results) => resolve({ ok: true, sheetConfig, rows: results.data }),
+        complete: (results) => resolve({ ok: true, sheetConfig, rows: rowsToObjects(results.data) }),
         error: (err) => resolve({ ok: false, sheetConfig, error: err }),
       });
     });
