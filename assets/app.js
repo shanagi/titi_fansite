@@ -223,25 +223,32 @@
     const li = document.createElement('li');
     li.className = 'result-card';
 
-    const link = episodeLink(record);
-    const episodeBadge = record.episodeRaw
-      ? link
-        ? `<a class="badge badge-episode" href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(record.episodeRaw)}回</a>`
-        : `<span class="badge badge-episode badge-episode-nolink">${escapeHtml(record.episodeRaw)}回</span>`
+    // 放送回: Apple Podcastsへのリンクではなく、その回だけの絞り込みボタン(数値として解釈できない回は押せない)
+    const episodeChip = record.episodeRaw
+      ? record.episodeNumeric !== null
+        ? `<button type="button" class="pill badge-episode" data-episode="${escapeHtml(record.episodeNumeric)}" title="この回の投稿だけに絞り込む">${escapeHtml(record.episodeRaw)}回</button>`
+        : `<span class="pill badge-episode">${escapeHtml(record.episodeRaw)}回</span>`
       : '';
 
-    const radioNameHtml = record.radioName
-      ? `<button type="button" class="radioname-chip" data-radioname="${escapeHtml(record.radioName)}">${highlightTerms(escapeHtml(record.radioName), terms)}</button>`
+    const radioNameChip = record.radioName
+      ? `<button type="button" class="pill radioname-chip" data-radioname="${escapeHtml(record.radioName)}" title="この人の投稿だけに絞り込む"><span class="pill-label">ラジオネーム：</span>${highlightTerms(escapeHtml(record.radioName), terms)}</button>`
+      : '';
+
+    // カード右下: この回のApple Podcastsへのリンク(紐づけできない回は出さない)
+    const link = episodeLink(record);
+    const footer = link
+      ? `<div class="card-footer"><a class="podcast-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">この回をpodcastで聞く</a></div>`
       : '';
 
     li.innerHTML = `
       <div class="card-header">
-        <span class="sheet-chip">${escapeHtml(record.sheetLabel)}</span>
-        ${episodeBadge}
-        ${radioNameHtml}
+        <span class="pill sheet-chip">${escapeHtml(record.sheetLabel)}</span>
+        ${episodeChip}
+        ${radioNameChip}
         ${buildBadgesHtml(record)}
       </div>
       <div class="card-body">${buildBodyHtml(record, terms)}</div>
+      ${footer}
     `;
     return li;
   }
@@ -281,6 +288,7 @@
 
     const searching = isSearching();
     const latestNo = latestEpisodeNo();
+    renderActiveFilters();
 
     const filtered = getFiltered();
     const sorted = getSorted(filtered);
@@ -424,15 +432,32 @@
     btn.textContent = `並び替え: ${labels[state.sortMode]}`;
   }
 
-  function updateRadioExactUi() {
-    const wrap = document.getElementById('radioname-exact-filter');
-    const valueEl = document.getElementById('radioname-exact-value');
-    if (state.radioExact === null) {
-      wrap.hidden = true;
-      return;
+  // 適用中の絞り込み(ラジオネームの完全一致・放送回の範囲)を、解除ボタン付きのチップで見せる
+  function episodeRangeText() {
+    const f = state.epFrom;
+    const t = state.epTo;
+    if (f === null && t === null) return null;
+    if (f !== null && t !== null) return f === t ? `第${f}回` : `第${f}〜${t}回`;
+    return f !== null ? `第${f}回以降` : `第${t}回まで`;
+  }
+
+  function renderActiveFilters() {
+    const box = document.getElementById('active-filters');
+    const items = [];
+    if (state.radioExact !== null) {
+      items.push({ key: 'radio', text: `ラジオネーム：${state.radioExact}` });
     }
-    wrap.hidden = false;
-    valueEl.textContent = state.radioExact;
+    const epText = episodeRangeText();
+    if (epText !== null) items.push({ key: 'episode', text: epText });
+
+    box.hidden = items.length === 0;
+    box.innerHTML = items
+      .map(
+        (it) =>
+          `<span class="active-chip"><span class="active-chip-text">${escapeHtml(it.text)}</span>` +
+          `<button type="button" class="active-chip-clear" data-clear="${it.key}" aria-label="${escapeHtml(it.text)}の絞り込みを解除">解除</button></span>`
+      )
+      .join('');
   }
 
   // ---------- イベント ----------
@@ -455,7 +480,6 @@
       document.getElementById(id).value = '';
     });
     updateSortButtonLabel();
-    updateRadioExactUi();
     renderSheetFilterButtons();
     render();
   }
@@ -468,7 +492,7 @@
     const sortToggle = document.getElementById('sort-toggle');
     const loadMore = document.getElementById('load-more');
     const sheetFilter = document.getElementById('sheet-filter');
-    const radioExactClear = document.getElementById('radioname-exact-clear');
+    const activeFilters = document.getElementById('active-filters');
     const resetAllBtn = document.getElementById('reset-all');
     const resultsList = document.getElementById('results-list');
 
@@ -518,9 +542,18 @@
       render();
     });
 
-    radioExactClear.addEventListener('click', () => {
-      state.radioExact = null;
-      updateRadioExactUi();
+    // 適用中の絞り込みの「解除」
+    activeFilters.addEventListener('click', (e) => {
+      const btn = e.target.closest('.active-chip-clear');
+      if (!btn) return;
+      if (btn.dataset.clear === 'radio') {
+        state.radioExact = null;
+      } else if (btn.dataset.clear === 'episode') {
+        state.epFrom = null;
+        state.epTo = null;
+        epFrom.value = '';
+        epTo.value = '';
+      }
       resetPaging();
       render();
     });
@@ -536,10 +569,22 @@
     });
 
     resultsList.addEventListener('click', (e) => {
+      // 放送回をタップ: その回だけに絞り込む
+      const episodeBtn = e.target.closest('.badge-episode[data-episode]');
+      if (episodeBtn) {
+        const n = parseFloat(episodeBtn.dataset.episode);
+        state.epFrom = n;
+        state.epTo = n;
+        epFrom.value = String(n);
+        epTo.value = String(n);
+        resetPaging();
+        render();
+        return;
+      }
+      // ラジオネームをタップ: その人の投稿だけに絞り込む(完全一致)
       const chip = e.target.closest('.radioname-chip');
       if (!chip) return;
       state.radioExact = chip.dataset.radioname;
-      updateRadioExactUi();
       resetPaging();
       render();
     });
