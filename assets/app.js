@@ -296,6 +296,7 @@
     // トップ: 検索窓 → 最新回のバナー → 最新回の投稿。検索を実施したときだけ検索結果を出す。
     banner.hidden = searching || !latestBannerReady;
     sortToggle.hidden = !searching;
+    document.getElementById('reset-all').hidden = !searching;
 
     if (searching) {
       resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
@@ -404,10 +405,19 @@
         : '');
   }
 
+  // 絞り込みボタンの並び順: CONFIG.filterOrder の順。書かれていないシートは、config の順で末尾に付ける。
+  function sheetsInFilterOrder() {
+    const order = CONFIG.filterOrder || [];
+    const byName = new Map(CONFIG.sheets.map((s) => [s.name, s]));
+    const listed = order.filter((n) => byName.has(n)).map((n) => byName.get(n));
+    const rest = CONFIG.sheets.filter((s) => order.indexOf(s.name) === -1);
+    return listed.concat(rest);
+  }
+
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
     const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
-      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
+      sheetsInFilterOrder().map((s) => ({ name: s.name, label: s.displayName || s.name }))
     );
     container.innerHTML = buttons
       .map(({ name, label }) => {
@@ -440,6 +450,25 @@
     state.visibleCount = PAGE_SIZE;
   }
 
+  // 検索・絞り込み・並び替えをすべて初期状態に戻す(=トップ画面に戻る)
+  function resetAll() {
+    state.keyword = '';
+    state.radioQuery = '';
+    state.radioExact = null;
+    state.activeSheet = 'ALL';
+    state.epFrom = null;
+    state.epTo = null;
+    state.sortMode = 'original';
+    resetPaging();
+    ['keyword-input', 'radioname-input', 'episode-from', 'episode-to'].forEach((id) => {
+      document.getElementById(id).value = '';
+    });
+    updateSortButtonLabel();
+    updateRadioExactUi();
+    renderSheetFilterButtons();
+    render();
+  }
+
   function setupEvents() {
     const keywordInput = document.getElementById('keyword-input');
     const radioInput = document.getElementById('radioname-input');
@@ -449,6 +478,7 @@
     const loadMore = document.getElementById('load-more');
     const sheetFilter = document.getElementById('sheet-filter');
     const radioExactClear = document.getElementById('radioname-exact-clear');
+    const resetAllBtn = document.getElementById('reset-all');
     const resultsList = document.getElementById('results-list');
 
     const onKeyword = debounce(() => {
@@ -503,6 +533,8 @@
       resetPaging();
       render();
     });
+
+    resetAllBtn.addEventListener('click', resetAll);
 
     resultsList.addEventListener('click', (e) => {
       const chip = e.target.closest('.radioname-chip');

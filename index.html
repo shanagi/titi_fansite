@@ -28,7 +28,10 @@
 
 <div class="search-bar" role="search">
   <input id="keyword-input" type="search" placeholder="キーワード検索(スペースでAND)" aria-label="キーワード検索">
-  <input id="radioname-input" type="search" placeholder="ラジオネームで絞り込み" aria-label="ラジオネーム検索">
+  <div class="search-row">
+    <input id="radioname-input" type="search" placeholder="ラジオネームで絞り込み" aria-label="ラジオネーム検索">
+    <button id="reset-all" class="reset-btn" type="button" title="検索・絞り込みをすべてリセット" aria-label="検索・絞り込みをすべてリセット" hidden>リセット</button>
+  </div>
   <div id="radioname-exact-filter" class="active-filter" hidden>
     <span>絞り込み中: <strong id="radioname-exact-value"></strong></span>
     <button id="radioname-exact-clear" type="button">解除</button>

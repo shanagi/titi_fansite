@@ -184,6 +184,14 @@ def main():
         # シート別絞り込み
         # (ボタン一覧は絞り込み変更のたびに再描画されるため、都度クエリし直す)
         sheet_buttons = page.query_selector_all(".filter-btn")
+        expected_order = [
+            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャー", "俺にもありました",
+            "優しいゴージャスさん", "パンダマン", "韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
+        ]
+        actual_order = [b.text_content().strip() for b in sheet_buttons]
+        if actual_order != expected_order:
+            fail(f"シート別ボタンの並びが仕様と違います:\n  実際: {actual_order}\n  仕様: {expected_order}")
+        print("OK: シート別ボタンの並び順")
         if len(sheet_buttons) > 1:
             sheet_buttons[1].click()
             page.wait_for_timeout(400)
@@ -224,6 +232,32 @@ def main():
         page.fill("#episode-from", "")
         page.fill("#episode-to", "")
         page.wait_for_timeout(300)
+
+        # リセットボタン: トップでは出ず、検索・絞り込み中だけ出る。押すとすべて初期状態に戻る
+        if page.is_visible("#reset-all"):
+            fail("検索していないのに、リセットボタンが表示されています。")
+        page.fill("#keyword-input", "ネタ")
+        page.fill("#radioname-input", "あ")
+        page.fill("#episode-from", "270")
+        page.query_selector_all(".filter-btn")[2].click()  # 「すべて」以外のシートを選ぶ
+        page.click("#sort-toggle")
+        page.wait_for_timeout(500)
+        if not page.is_visible("#reset-all"):
+            fail("検索・絞り込み中なのに、リセットボタンが表示されていません。")
+        page.click("#reset-all")
+        page.wait_for_timeout(400)
+        state = page.evaluate(
+            """() => ({
+              inputs: ['keyword-input', 'radioname-input', 'episode-from', 'episode-to'].map(id => document.getElementById(id).value),
+              active: document.querySelector('.filter-btn.is-active').textContent.trim(),
+              sort: document.getElementById('sort-toggle').textContent.trim(),
+              count: document.getElementById('result-count').textContent.trim(),
+              reset: !document.getElementById('reset-all').hidden,
+            })"""
+        )
+        if any(state["inputs"]) or state["active"] != "すべて" or "記載順" not in state["sort"] or "回の投稿" not in state["count"] or state["reset"]:
+            fail(f"リセット後に初期状態へ戻っていません: {state}")
+        print("OK: リセットボタン(全条件を解除してトップに戻る)")
 
         # 放送回バッジのリンク
         badge_links = page.query_selector_all("a.badge-episode")
