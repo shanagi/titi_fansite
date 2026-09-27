@@ -112,6 +112,7 @@
 
       records.push({
         sheetName: sheetConfig.name,
+        sheetLabel: sheetConfig.displayName || sheetConfig.name,
         episodeRaw,
         episodeNumeric: parseEpisodeNumeric(episodeRaw),
         radioName,
@@ -156,7 +157,7 @@
 
     const quoted = record.parts.filter((p) => p.mode === 'quoted' && p.value);
     if (quoted.length) {
-      const line = quoted.map((p) => `${escapeHtml(p.label)}「${hl(p.value)}」`).join(' ');
+      const line = quoted.map((p) => `${escapeHtml(p.label)}「${hl(p.value)}」`).join('<br>');
       html += `<p class="field field-quoted">${line}</p>`;
     }
 
@@ -204,7 +205,7 @@
       <div class="card-header">
         ${episodeBadge}
         ${radioNameHtml}
-        <span class="sheet-name">${escapeHtml(record.sheetName)}</span>
+        <span class="sheet-name">${escapeHtml(record.sheetLabel)}</span>
         ${buildBadgesHtml(record)}
       </div>
       <div class="card-body">${buildBodyHtml(record, terms)}</div>
@@ -311,11 +312,11 @@
 
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
-    const sheetNames = CONFIG.sheets.map((s) => s.name);
-    const buttons = ['ALL'].concat(sheetNames);
+    const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
+      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
+    );
     container.innerHTML = buttons
-      .map((name) => {
-        const label = name === 'ALL' ? 'すべて' : name;
+      .map(({ name, label }) => {
         const active = state.activeSheet === name ? ' is-active' : '';
         return `<button type="button" class="filter-btn${active}" data-sheet="${escapeHtml(name)}">${escapeHtml(label)}</button>`;
       })
