@@ -63,7 +63,9 @@ def main():
         intro_text = page.text_content(".intro") or ""
         if "非公式" not in intro_text or "関係ありません" not in intro_text:
             fail("冒頭の非公式ファンサイトの説明が見つかりません。")
-        print("OK: 冒頭の説明")
+        if not page.query_selector('.intro a[href="https://x.com/pomp364"]'):
+            fail("冒頭の「きゅうり大好きっ子ちゃん」がリンク(https://x.com/pomp364)になっていません。")
+        print("OK: 冒頭の説明(提供元はリンク)")
 
         # デザイン: タイトルは黒、「父」だけ赤 / 背景は格子 / フォント
         title_colors = page.evaluate(
@@ -117,11 +119,9 @@ def main():
             y_banner = page.eval_on_selector("#latest-episode", "e => e.getBoundingClientRect().top")
             if not y_search < y_banner:
                 fail("表示順が「検索窓 → 最新回のバナー」になっていません。")
-            first_card = page.query_selector(".result-card")
-            if first_card:
-                y_card = page.eval_on_selector(".result-card", "e => e.getBoundingClientRect().top")
-                if not y_banner < y_card:
-                    fail("表示順が「最新回のバナー → 最新回の投稿」になっていません。")
+            y_header = page.eval_on_selector(".results-header", "e => e.getBoundingClientRect().top")
+            if not y_banner < y_header:
+                fail("表示順が「最新回のバナー → 最新回の投稿」になっていません。")
             print("OK: 表示順 (検索窓 → 最新回のバナー → 最新回の投稿)")
         else:
             print("WARN: 最新回バナーが表示されていません(episodes.jsonのlatestが空の場合は正常)。")
@@ -137,6 +137,41 @@ def main():
         if page.is_visible("#sort-toggle"):
             fail("検索していないのに、並び替えボタンが表示されています。")
         print(f"OK: トップは最新回の投稿のみ ({', '.join(episode_labels) or '投稿なし'})")
+
+        # 最新回の投稿は、初期表示では折りたたまれていて、見出しの行をタップすると開閉する
+        def top_state():
+            return page.evaluate(
+                """() => ({
+                  expanded: document.querySelector('.results-header').getAttribute('aria-expanded'),
+                  listVisible: !document.getElementById('results-list').hidden,
+                  cardVisible: !!document.querySelector('.result-card') && document.querySelector('.result-card').offsetParent !== null,
+                })"""
+            )
+
+        s0 = top_state()
+        if s0["expanded"] != "false" or s0["listVisible"] or s0["cardVisible"]:
+            fail(f"トップの最新回の投稿が、初期表示で折りたたまれていません: {s0}")
+        page.click(".results-header")
+        page.wait_for_timeout(200)
+        s1 = top_state()
+        if s1["expanded"] != "true" or not s1["listVisible"] or not s1["cardVisible"]:
+            fail(f"見出しの行をタップしても、最新回の投稿が開きません: {s1}")
+        page.click(".results-header")
+        page.wait_for_timeout(200)
+        s2 = top_state()
+        if s2["expanded"] != "false" or s2["listVisible"]:
+            fail(f"もう一度タップしても、最新回の投稿が閉じません: {s2}")
+        # キーボード(Enter)でも開閉できる
+        page.focus(".results-header")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(200)
+        if not top_state()["listVisible"]:
+            fail("Enterキーで、最新回の投稿を開けません。")
+        page.keyboard.press("Space")
+        page.wait_for_timeout(200)
+        if top_state()["listVisible"]:
+            fail("Spaceキーで、最新回の投稿を閉じられません。")
+        print("OK: 最新回の投稿は折りたたみ(初期は閉じ、タップ・Enter・Spaceで開閉)")
 
         # エラーバナーが出ていないか確認(出ていても致命的ではないが警告する)
         if page.is_visible("#error-banner"):
@@ -278,6 +313,11 @@ def main():
         page.fill("#keyword-input", "川北")
         page.query_selector_all(".filter-btn")[3].click()
         page.wait_for_timeout(400)
+        page.fill("#keyword-input", "")
+        page.wait_for_timeout(400)
+        page.click(".results-header")  # トップの最新回の投稿を開いておく(タイトルのタップで閉じに戻ることを確認する)
+        page.query_selector_all(".filter-btn")[3].click()
+        page.wait_for_timeout(300)
         page.evaluate("window.scrollTo(0, 600)")
         page.click("#site-title-link")
         page.wait_for_timeout(400)
@@ -291,7 +331,8 @@ def main():
               url: location.pathname,
             })"""
         )
-        if back["keyword"] or back["active"] != "すべて" or back["open"] or back["y"] != 0 or "回の投稿" not in back["count"]:
+        back["collapsed"] = page.evaluate("document.getElementById('results-list').hidden")
+        if back["keyword"] or back["active"] != "すべて" or back["open"] or back["y"] != 0 or "回の投稿" not in back["count"] or not back["collapsed"]:
             fail(f"タイトルをタップしても最初の画面に戻りません: {back}")
         print("OK: タイトルのタップで最初の画面に戻る")
 
