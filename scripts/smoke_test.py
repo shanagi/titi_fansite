@@ -220,7 +220,7 @@ def main():
         # (ボタン一覧は絞り込み変更のたびに再描画されるため、都度クエリし直す)
         sheet_buttons = page.query_selector_all(".filter-btn")
         expected_order = [
-            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャー", "俺にもありました",
+            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ラジ父大喜利（お眼鏡賞）", "ワーキャー", "俺にもありました",
             "優しいゴージャスさん", "パンダマン", "韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
         ]
         actual_order = [b.text_content().strip() for b in sheet_buttons]
@@ -273,7 +273,7 @@ def main():
         page.fill("#episode-to", "279")
         page.wait_for_timeout(500)
         sheet_seq = page.eval_on_selector_all(".result-card .sheet-chip", "els => els.map(e => e.textContent.trim())")
-        order_idx = {n: i for i, n in enumerate(expected_order[1:])}
+        order_idx = {n: i for i, n in enumerate(n for n in expected_order[1:] if "（" not in n)}
         idx = [order_idx[n] for n in sheet_seq]
         if idx != sorted(idx):
             fail(f"投稿の記載順が、絞り込みボタンのシートの並びと違います: {sheet_seq}")
@@ -281,6 +281,53 @@ def main():
         page.fill("#episode-from", "")
         page.fill("#episode-to", "")
         page.wait_for_timeout(300)
+
+        # 免責の文言: 冒頭とフッターで同じ文にそろえる
+        disclaimer = "真空ジェシカ様・TBSラジオ様・制作関係者様とは関係ありません。"
+        if disclaimer not in (page.text_content(".intro") or "") or disclaimer not in (page.text_content(".site-footer") or ""):
+            fail("免責の文言が、冒頭とフッターで「" + disclaimer + "」にそろっていません。")
+        print("OK: 免責の文言(冒頭・フッター)")
+
+        # 「ラジ父大喜利（お眼鏡賞）」: お眼鏡賞の印が付いた投稿だけを表示する(件数は、元のスプレッドシートから数えた値と照合)
+        import csv, io, urllib.parse, urllib.request
+        sheet_id = "1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo"
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?" + urllib.parse.urlencode(
+            {"tqx": "out:csv", "headers": "1", "sheet": "ラジ父大喜利"}
+        )
+        rows = list(csv.reader(io.StringIO(urllib.request.urlopen(url).read().decode("utf-8"))))
+        hdr = rows[0]
+        i_mark, i_odai, i_neta = hdr.index("お眼鏡賞"), hdr.index("お題"), hdr.index("ネタ")
+        expected_marked = sum(
+            1 for r in rows[1:] if len(r) > i_mark and r[i_mark].strip() and (r[i_odai].strip() or r[i_neta].strip())
+        )
+        if not page.evaluate("document.getElementById('filter-panel').open"):
+            page.click("#filter-panel summary")
+        page.click('.filter-btn[data-sheet="ラジ父大喜利::お眼鏡賞"]')
+        page.wait_for_timeout(500)
+        count_text = (page.text_content("#result-count") or "").strip()
+        m_mark = re.search(r"(\d+)件", count_text)
+        card_info = page.evaluate(
+            """() => {
+              const cards = [...document.querySelectorAll('.result-card')];
+              return { n: cards.length,
+                       sheets: [...new Set(cards.map(c => c.querySelector('.sheet-chip').textContent.trim()))],
+                       allMarked: cards.every(c => [...c.querySelectorAll('.badge-mark')].some(b => b.textContent.trim() === 'お眼鏡賞')),
+                       active: document.querySelector('.filter-btn.is-active').textContent.trim() };
+            }"""
+        )
+        if not m_mark or int(m_mark.group(1)) != expected_marked:
+            fail(f"お眼鏡賞の件数が、スプレッドシートの{expected_marked}件と一致しません: {count_text!r}")
+        if card_info["sheets"] != ["ラジ父大喜利"] or not card_info["allMarked"] or card_info["active"] != "ラジ父大喜利（お眼鏡賞）":
+            fail(f"お眼鏡賞の絞り込みで、印のない投稿が混ざっています: {card_info}")
+        # 「ラジ父大喜利」だけを選ぶと、印のない投稿も出る(=お眼鏡賞より多い)
+        page.click('.filter-btn[data-sheet="ラジ父大喜利"]')
+        page.wait_for_timeout(500)
+        all_count = int(re.search(r"(\d+)件", page.text_content("#result-count") or "").group(1))
+        if all_count <= expected_marked:
+            fail(f"「ラジ父大喜利」の件数({all_count})が、お眼鏡賞({expected_marked})より多くありません。")
+        page.click('.filter-btn[data-sheet="ALL"]')
+        page.wait_for_timeout(300)
+        print(f"OK: ラジ父大喜利（お眼鏡賞）の絞り込み ({expected_marked}件 / ラジ父大喜利全体 {all_count}件)")
 
         # ---- 投稿カードの見出し・右下のリンク ----
         page.fill("#keyword-input", "ネタ")

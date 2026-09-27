@@ -359,7 +359,14 @@
     const radioQueryNorm = normalizeText(state.radioQuery);
 
     return allRecords.filter((r) => {
-      if (state.activeSheet !== 'ALL' && r.sheetName !== state.activeSheet) return false;
+      if (state.activeSheet !== 'ALL') {
+        const sub = findSubFilter(state.activeSheet);
+        if (sub) {
+          if (r.sheetName !== sub.sheetName || !hasMark(r, sub.markColumn)) return false;
+        } else if (r.sheetName !== state.activeSheet) {
+          return false;
+        }
+      }
 
       if (state.radioExact !== null && r.radioName !== state.radioExact) return false;
 
@@ -432,11 +439,33 @@
         : '');
   }
 
+  // シートの中の追加の絞り込み(印列に値がある行だけ)。ボタンの値は「シート名::key」の形にする
+  function subFilterValue(sheetName, key) {
+    return `${sheetName}::${key}`;
+  }
+
+  function findSubFilter(value) {
+    for (const s of CONFIG.sheets) {
+      for (const sub of s.subFilters || []) {
+        if (subFilterValue(s.name, sub.key) === value) return { sheetName: s.name, markColumn: sub.markColumn };
+      }
+    }
+    return null;
+  }
+
+  function hasMark(record, column) {
+    return record.parts.some((p) => p.column === column && p.mode === 'badge' && p.value !== '');
+  }
+
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
-    const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
-      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
-    );
+    const buttons = [{ name: 'ALL', label: 'すべて' }];
+    CONFIG.sheets.forEach((s) => {
+      buttons.push({ name: s.name, label: s.displayName || s.name });
+      (s.subFilters || []).forEach((sub) => {
+        buttons.push({ name: subFilterValue(s.name, sub.key), label: sub.label });
+      });
+    });
     container.innerHTML = buttons
       .map(({ name, label }) => {
         const active = state.activeSheet === name ? ' is-active' : '';
