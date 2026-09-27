@@ -461,6 +461,51 @@ main {
   color: var(--ink);
 }
 
+/* トップでは、この行が「最新回の投稿」を開閉するボタンになる */
+.results-header.is-toggle {
+  min-height: var(--tap-min);
+  padding-right: 16px;
+  justify-content: flex-start;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.results-header.is-toggle:hover {
+  background: var(--accent-soft);
+}
+
+.results-header.is-toggle::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-right: 2px;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent var(--ink);
+  transition: transform 0.15s ease;
+}
+
+.results-header.is-toggle[aria-expanded="true"]::before {
+  transform: rotate(90deg);
+}
+
+.results-header.is-toggle::after {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.results-header.is-toggle[aria-expanded="false"]::after {
+  content: "タップで開く";
+}
+
+.results-header.is-toggle[aria-expanded="true"]::after {
+  content: "閉じる";
+}
+
 #sort-toggle {
   min-height: var(--tap-min);
   padding: 6px 16px;
