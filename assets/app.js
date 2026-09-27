@@ -15,6 +15,7 @@
     epTo: null,
     sortMode: 'original', // 'original' | 'asc' | 'desc'
     visibleCount: PAGE_SIZE,
+    topOpen: false, // トップ(最新回の投稿)の一覧を開いているか。初期は折りたたむ
   };
 
   let allRecords = [];
@@ -293,7 +294,25 @@
     visible.forEach((record) => frag.appendChild(renderCard(record, keywordTerms)));
     resultsList.appendChild(frag);
 
-    // トップ: 検索窓 → 最新回のバナー → 最新回の投稿。検索を実施したときだけ検索結果を出す。
+    // トップ: 検索窓 → 最新回のバナー → 最新回の投稿(初期は折りたたみ)。検索を実施したときだけ検索結果を出す。
+    // 見出しの行は、トップでは「開閉ボタン」として働く(検索中は普通の見出し)。
+    const header = document.querySelector('.results-header');
+    if (searching) {
+      header.classList.remove('is-toggle');
+      header.removeAttribute('role');
+      header.removeAttribute('tabindex');
+      header.removeAttribute('aria-expanded');
+      header.removeAttribute('aria-controls');
+    } else {
+      header.classList.add('is-toggle');
+      header.setAttribute('role', 'button');
+      header.tabIndex = 0;
+      header.setAttribute('aria-expanded', String(state.topOpen));
+      header.setAttribute('aria-controls', 'results-list');
+    }
+    const collapsed = !searching && !state.topOpen;
+    resultsList.hidden = collapsed;
+
     banner.hidden = searching || !latestBannerReady;
     sortToggle.hidden = !searching;
     document.getElementById('reset-all').hidden = !searching;
@@ -319,7 +338,7 @@
       latestNote.hidden = true;
     }
 
-    loadMore.hidden = sorted.length <= state.visibleCount;
+    loadMore.hidden = collapsed || sorted.length <= state.visibleCount;
   }
 
   function getFiltered() {
@@ -450,6 +469,7 @@
     state.epFrom = null;
     state.epTo = null;
     state.sortMode = 'original';
+    state.topOpen = false;
     resetPaging();
     ['keyword-input', 'radioname-input', 'episode-from', 'episode-to'].forEach((id) => {
       document.getElementById(id).value = '';
@@ -526,6 +546,22 @@
     });
 
     resetAllBtn.addEventListener('click', resetAll);
+
+    // トップでは、見出しの行をタップ(またはEnter/Space)すると、最新回の投稿を開閉する
+    const resultsHeader = document.querySelector('.results-header');
+    const toggleTop = () => {
+      if (!resultsHeader.classList.contains('is-toggle')) return;
+      state.topOpen = !state.topOpen;
+      render();
+    };
+    resultsHeader.addEventListener('click', toggleTop);
+    resultsHeader.addEventListener('keydown', (e) => {
+      if (e.target !== resultsHeader) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleTop();
+      }
+    });
 
     // タイトルをタップすると、最初の画面(トップ)に戻る: 検索・絞り込みをすべて解除し、絞り込みパネルを閉じて、先頭へ
     document.getElementById('site-title-link').addEventListener('click', (e) => {
