@@ -67,15 +67,35 @@ button {
   margin: 0 0 4px;
 }
 
-.credit-inline {
-  font-size: 0.75rem;
+.intro {
+  margin-top: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.8rem;
+  line-height: 1.6;
   color: var(--muted);
+  background: #f8fafb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.intro p {
   margin: 0;
+}
+
+.intro p + p {
+  margin-top: 6px;
+}
+
+.intro strong {
+  color: var(--text);
 }
 
 /* 最新回バナー */
 .latest-banner {
-  margin: 10px 0 0;
+  width: calc(100% - 32px);
+  max-width: calc(var(--max-width) - 32px);
+  margin: 12px auto 0;
   padding: 14px;
   text-align: left;
   background: #f2f6f8;
@@ -386,6 +406,22 @@ mark {
   padding: 0 2px;
 }
 
+.latest-note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--accent-text);
+  background: #f2f6f8;
+  border-left: 4px solid var(--accent);
+  border-radius: 4px;
+}
+
+.empty-message {
+  margin: 16px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
 #load-more {
   display: block;
   width: 100%;
@@ -422,5 +458,10 @@ mark {
   .site-footer {
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .latest-banner {
+    width: 100%;
+    max-width: var(--max-width);
   }
 }

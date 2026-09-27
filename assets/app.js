@@ -20,6 +20,7 @@
   let allRecords = [];
   let episodesData = { episodes: {}, latest: null };
   let episodeOverrides = {};
+  let latestBannerReady = false; // episodes.json に最新回があり、バナーを作れたか
   const loadErrors = []; // { sheetName, message }
 
   // ---------- ユーティリティ ----------
@@ -59,13 +60,28 @@
 
   // ---------- データ取得 ----------
 
+  // [[見出し...], [値...], ...] を [{見出し: 値, ...}, ...] に変換する
+  function rowsToObjects(matrix) {
+    if (!matrix.length) return [];
+    const headers = matrix[0].map((h) => (h == null ? '' : String(h).trim()));
+    return matrix.slice(1).map((cells) => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        if (h) obj[h] = cells[i] == null ? '' : cells[i];
+      });
+      return obj;
+    });
+  }
+
   function loadSheet(sheetConfig) {
     return new Promise((resolve) => {
       Papa.parse(CONFIG.csvUrl(sheetConfig.name), {
         download: true,
-        header: true,
+        // header:true だと、見出し行に空の列が多いシートで最初のデータ行が欠落するため、
+        // 生の行として読み、見出しは自前で組み立てる(空見出しの列は無視する)。
+        header: false,
         skipEmptyLines: true,
-        complete: (results) => resolve({ ok: true, sheetConfig, rows: results.data }),
+        complete: (results) => resolve({ ok: true, sheetConfig, rows: rowsToObjects(results.data) }),
         error: (err) => resolve({ ok: false, sheetConfig, error: err }),
       });
     });
@@ -94,6 +110,7 @@
         label: f.label,
         mode: f.mode,
         combineGroup: f.combineGroup,
+        breakAfter: f.breakAfter,
         value: (row[f.column] || '').toString().trim(),
       }));
 
@@ -112,6 +129,7 @@
 
       records.push({
         sheetName: sheetConfig.name,
+        sheetLabel: sheetConfig.displayName || sheetConfig.name,
         episodeRaw,
         episodeNumeric: parseEpisodeNumeric(episodeRaw),
         radioName,
@@ -145,6 +163,22 @@
     return html;
   }
 
+  // 値をHTMLにする。breakAfter がある項目は、一致箇所の直後で改行する。
+  function valueHtml(part, hl) {
+    if (!part.breakAfter) return hl(part.value);
+    const MARK = '\u0001';
+    const text = part.value
+      .replace(part.breakAfter, (m) => m + MARK)
+      .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
+      .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
+    return text
+      .split(MARK)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => hl(line))
+      .join('<br>');
+  }
+
   function buildBodyHtml(record, terms) {
     const hl = (raw) => highlightTerms(escapeHtml(raw), terms);
     let html = '';
@@ -156,7 +190,7 @@
 
     const quoted = record.parts.filter((p) => p.mode === 'quoted' && p.value);
     if (quoted.length) {
-      const line = quoted.map((p) => `${escapeHtml(p.label)}「${hl(p.value)}」`).join(' ');
+      const line = quoted.map((p) => `${escapeHtml(p.label)}「${hl(p.value)}」`).join('<br>');
       html += `<p class="field field-quoted">${line}</p>`;
     }
 
@@ -172,7 +206,7 @@
 
     const normal = record.parts.filter((p) => p.mode === 'normal' && p.value);
     normal.forEach((p) => {
-      html += `<div class="field field-normal"><span class="field-label">${escapeHtml(p.label)}</span><span class="field-value">${hl(p.value)}</span></div>`;
+      html += `<div class="field field-normal"><span class="field-label">${escapeHtml(p.label)}</span><span class="field-value">${valueHtml(p, hl)}</span></div>`;
     });
 
     return html;
@@ -204,7 +238,7 @@
       <div class="card-header">
         ${episodeBadge}
         ${radioNameHtml}
-        <span class="sheet-name">${escapeHtml(record.sheetName)}</span>
+        <span class="sheet-name">${escapeHtml(record.sheetLabel)}</span>
         ${buildBadgesHtml(record)}
       </div>
       <div class="card-body">${buildBodyHtml(record, terms)}</div>
@@ -212,27 +246,87 @@
     return li;
   }
 
+  // 検索・絞り込みが1つでも実施されているか。実施されていなければトップ(最新回の投稿)を表示する。
+  function isSearching() {
+    return (
+      state.keyword.trim() !== '' ||
+      state.radioQuery.trim() !== '' ||
+      state.radioExact !== null ||
+      state.epFrom !== null ||
+      state.epTo !== null ||
+      state.activeSheet !== 'ALL'
+    );
+  }
+
+  // トップに表示する投稿の回番号 = 投稿(本文あり)が登録されている最新の整数回。
+  // スプレッドシートへの登録は配信より遅れるため、バナーの最新回とは一致しないことがある。
+  function latestEpisodeNo() {
+    let max = null;
+    allRecords.forEach((r) => {
+      if (r.episodeNumeric !== null && Number.isInteger(r.episodeNumeric) && (max === null || r.episodeNumeric > max)) {
+        max = r.episodeNumeric;
+      }
+    });
+    return max;
+  }
+
   function render() {
     const resultsList = document.getElementById('results-list');
     const resultCount = document.getElementById('result-count');
     const loadMore = document.getElementById('load-more');
+    const sortToggle = document.getElementById('sort-toggle');
+    const banner = document.getElementById('latest-episode');
+    const emptyMessage = document.getElementById('empty-message');
+    const latestNote = document.getElementById('latest-note');
+
+    const searching = isSearching();
+    const latestNo = latestEpisodeNo();
 
     const filtered = getFiltered();
     const sorted = getSorted(filtered);
     const visible = sorted.slice(0, state.visibleCount);
 
-    const keywordTerms = state.keyword.split(/[\s　]+/).map((t) => t.trim()).filter(Boolean);
+    const keywordTerms = state.keyword.split(/[\s\u3000]+/).map((t) => t.trim()).filter(Boolean);
 
     resultsList.innerHTML = '';
     const frag = document.createDocumentFragment();
     visible.forEach((record) => frag.appendChild(renderCard(record, keywordTerms)));
     resultsList.appendChild(frag);
 
-    resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
+    // トップ: 検索窓 → 最新回のバナー → 最新回の投稿。検索を実施したときだけ検索結果を出す。
+    banner.hidden = searching || !latestBannerReady;
+    sortToggle.hidden = !searching;
+
+    if (searching) {
+      resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
+      emptyMessage.textContent = sorted.length === 0 ? '該当する投稿が見つかりませんでした。' : '';
+    } else {
+      resultCount.textContent = latestNo === null ? '' : `第${latestNo}回の投稿 ${sorted.length}件`;
+      emptyMessage.textContent =
+        sorted.length === 0 && latestNo !== null
+          ? `第${latestNo}回の投稿は、まだスプレッドシートに登録されていません。`
+          : '';
+    }
+    emptyMessage.hidden = emptyMessage.textContent === '';
+
+    // バナーの最新回の投稿がまだ登録されていない場合は、その旨を伝える
+    const bannerNo = episodesData.latest && Number.isInteger(episodesData.latest.no) ? episodesData.latest.no : null;
+    if (!searching && bannerNo !== null && latestNo !== null && bannerNo > latestNo) {
+      latestNote.textContent = `最新の第${bannerNo}回の投稿は、まだスプレッドシートに登録されていません。登録され次第、表示されます。`;
+      latestNote.hidden = false;
+    } else {
+      latestNote.hidden = true;
+    }
+
     loadMore.hidden = sorted.length <= state.visibleCount;
   }
 
   function getFiltered() {
+    if (!isSearching()) {
+      const latestNo = latestEpisodeNo();
+      return allRecords.filter((r) => latestNo !== null && r.episodeNumeric === latestNo);
+    }
+
     const kwTerms = state.keyword.split(/[\s　]+/).map(normalizeText).filter(Boolean);
     const radioQueryNorm = normalizeText(state.radioQuery);
 
@@ -291,14 +385,15 @@
     const el = document.getElementById('latest-episode');
     const latest = episodesData.latest;
     if (!latest || !latest.no) {
-      el.hidden = true;
+      latestBannerReady = false;
+      el.innerHTML = '';
       return;
     }
+    latestBannerReady = true;
     // 「◆281【本編】」の接頭辞は回番号と重複するので、タイトルから外す
     const title = (latest.title || '').replace(/^\s*◆\s*\d+(?:\.\d+)?\s*【.+?】\s*/, '') || latest.title || '';
     const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(latest.date || '');
     const dateText = dm ? `${dm[1]}年${Number(dm[2])}月${Number(dm[3])}日配信` : '';
-    el.hidden = false;
     el.innerHTML =
       '<span class="latest-label">最新回</span>' +
       `<p class="latest-no">第${escapeHtml(latest.no)}回</p>` +
@@ -311,11 +406,11 @@
 
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
-    const sheetNames = CONFIG.sheets.map((s) => s.name);
-    const buttons = ['ALL'].concat(sheetNames);
+    const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
+      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
+    );
     container.innerHTML = buttons
-      .map((name) => {
-        const label = name === 'ALL' ? 'すべて' : name;
+      .map(({ name, label }) => {
         const active = state.activeSheet === name ? ' is-active' : '';
         return `<button type="button" class="filter-btn${active}" data-sheet="${escapeHtml(name)}">${escapeHtml(label)}</button>`;
       })

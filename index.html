@@ -11,12 +11,10 @@
 
 <header class="site-header">
   <h1>ラジ父 非公式ファンサイト</h1>
-  <p class="credit-inline">
-    データ提供:
-    <a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>さん /
-    非公式ファンサイトです
-  </p>
-  <aside id="latest-episode" class="latest-banner" aria-label="最新回" hidden></aside>
+  <div class="intro">
+    <p>このサイトは、TBSラジオのポッドキャスト「真空ジェシカのラジオ父ちゃん」(通称ラジ父)のリスナー投稿を検索できる、<strong>非公式のファンサイト</strong>です。番組・TBSラジオ・出演者・制作関係者とは一切関係ありません。</p>
+    <p>掲載している投稿は、きゅうり大好きっ子ちゃん(@pomp364)様が作成・公開されているスプレッドシートを、ご本人の許諾のもとで表示したものです。</p>
+  </div>
 </header>
 
 <div class="search-bar" role="search">
@@ -42,20 +40,25 @@
   </div>
 </details>
 
+<aside id="latest-episode" class="latest-banner" aria-label="最新回" hidden></aside>
+
 <main>
   <div class="results-header">
-    <span id="result-count" aria-live="polite"></span>
-    <button id="sort-toggle" type="button">並び替え: 記載順</button>
+    <span id="result-count" aria-live="polite">読み込み中…</span>
+    <button id="sort-toggle" type="button" hidden>並び替え: 記載順</button>
   </div>
   <div id="error-banner" class="error-banner" hidden></div>
+  <p id="latest-note" class="latest-note" hidden></p>
+  <p id="empty-message" class="empty-message" hidden></p>
   <ul id="results-list" class="results-list"></ul>
   <button id="load-more" type="button" hidden>さらに表示</button>
 </main>
 
 <footer class="site-footer">
-  <p>データ提供: <a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>さん</p>
+  <p>データ提供：<a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>様</p>
   <p><a href="https://docs.google.com/spreadsheets/d/1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo/htmlview" target="_blank" rel="noopener">元スプレッドシート</a></p>
   <p>このサイトは非公式のファンサイトです。TBSラジオ・真空ジェシカ・出演者とは関係ありません。</p>
+  <p>サイト作成：<a href="https://x.com/shanagi314" target="_blank" rel="noopener">shanagi(@shanagi314)</a></p>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
