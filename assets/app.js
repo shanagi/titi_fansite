@@ -94,6 +94,7 @@
         label: f.label,
         mode: f.mode,
         combineGroup: f.combineGroup,
+        breakAfter: f.breakAfter,
         value: (row[f.column] || '').toString().trim(),
       }));
 
@@ -146,6 +147,22 @@
     return html;
   }
 
+  // 値をHTMLにする。breakAfter がある項目は、一致箇所の直後で改行する。
+  function valueHtml(part, hl) {
+    if (!part.breakAfter) return hl(part.value);
+    const MARK = '\u0001';
+    const text = part.value
+      .replace(part.breakAfter, (m) => m + MARK)
+      .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
+      .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
+    return text
+      .split(MARK)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => hl(line))
+      .join('<br>');
+  }
+
   function buildBodyHtml(record, terms) {
     const hl = (raw) => highlightTerms(escapeHtml(raw), terms);
     let html = '';
@@ -173,7 +190,7 @@
 
     const normal = record.parts.filter((p) => p.mode === 'normal' && p.value);
     normal.forEach((p) => {
-      html += `<div class="field field-normal"><span class="field-label">${escapeHtml(p.label)}</span><span class="field-value">${hl(p.value)}</span></div>`;
+      html += `<div class="field field-normal"><span class="field-label">${escapeHtml(p.label)}</span><span class="field-value">${valueHtml(p, hl)}</span></div>`;
     });
 
     return html;
