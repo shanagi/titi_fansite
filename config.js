@@ -48,23 +48,7 @@ const CONFIG = {
     showUrl: 'https://podcasts.apple.com/jp/podcast/id1567028358',
   },
 
-  // シート別の絞り込みボタンの並び順(シート名=タブ名で指定する。「すべて」は常に先頭)。
-  // 投稿の表示順(記載順)とは別。ここに書かれていないシートは、末尾に追加される。
-  filterOrder: [
-    'ともはるさん',
-    'リスナージングル',
-    'ラジ父大喜利',
-    'ワーキャー',
-    '俺にもありました',
-    '優しいゴージャスさん',
-    'パンダマン',
-    '韻豆',
-    'ガクにもわかりますか？',
-    'エンディングのコーナー',
-    'その他',
-  ],
-
-  // 読み込むシートと表示ルール(この順番が初期表示の記載順になる)
+  // 読み込むシートと表示ルール。この順番が、絞り込みボタンの並びと、投稿の初期表示順(記載順)になる。
   sheets: [
     {
       name: 'ともはるさん',
@@ -79,20 +63,6 @@ const CONFIG = {
       name: 'リスナージングル',
       fields: [
         { column: '本文', label: '本文', mode: 'normal' },
-      ],
-    },
-    {
-      name: 'エンディングのコーナー',
-      fields: [
-        {
-          column: 'ネタ',
-          label: 'ネタ',
-          mode: 'normal',
-          // 「〜」は番組名 / 「〜」の番組名 の直後で改行する(「は」の省略や「Amazon」のみの表記も許容)。
-          // 「」の直後に続く場合だけ対象にし、セリフ中や注記中の同じ語では改行しない。
-          breakAfter: /」[はの]?[ \u3000]?(?:radiko|podcast|amazon(?: ?music)?|ラジオクラウド|spotify)/gi,
-        },
-        { column: '件名', label: '件名', mode: 'normal' },
       ],
     },
     {
@@ -143,6 +113,20 @@ const CONFIG = {
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
         { column: 'わかりますか？', label: 'わかりますか？', mode: 'normal' },
+      ],
+    },
+    {
+      name: 'エンディングのコーナー',
+      fields: [
+        {
+          column: 'ネタ',
+          label: 'ネタ',
+          mode: 'normal',
+          // 「〜」は番組名 / 「〜」の番組名 の直後で改行する(「は」の省略や「Amazon」のみの表記も許容)。
+          // 「」の直後に続く場合だけ対象にし、セリフ中や注記中の同じ語では改行しない。
+          breakAfter: /」[はの]?[ \u3000]?(?:radiko|podcast|amazon(?: ?music)?|ラジオクラウド|spotify)/gi,
+        },
+        { column: '件名', label: '件名', mode: 'normal' },
       ],
     },
     {

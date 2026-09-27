@@ -405,19 +405,10 @@
         : '');
   }
 
-  // 絞り込みボタンの並び順: CONFIG.filterOrder の順。書かれていないシートは、config の順で末尾に付ける。
-  function sheetsInFilterOrder() {
-    const order = CONFIG.filterOrder || [];
-    const byName = new Map(CONFIG.sheets.map((s) => [s.name, s]));
-    const listed = order.filter((n) => byName.has(n)).map((n) => byName.get(n));
-    const rest = CONFIG.sheets.filter((s) => order.indexOf(s.name) === -1);
-    return listed.concat(rest);
-  }
-
   function renderSheetFilterButtons() {
     const container = document.getElementById('sheet-filter');
     const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
-      sheetsInFilterOrder().map((s) => ({ name: s.name, label: s.displayName || s.name }))
+      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
     );
     container.innerHTML = buttons
       .map(({ name, label }) => {
@@ -535,6 +526,14 @@
     });
 
     resetAllBtn.addEventListener('click', resetAll);
+
+    // タイトルをタップすると、最初の画面(トップ)に戻る: 検索・絞り込みをすべて解除し、絞り込みパネルを閉じて、先頭へ
+    document.getElementById('site-title-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      resetAll();
+      document.getElementById('filter-panel').open = false;
+      window.scrollTo(0, 0);
+    });
 
     resultsList.addEventListener('click', (e) => {
       const chip = e.target.closest('.radioname-chip');

@@ -233,6 +233,20 @@ def main():
         page.fill("#episode-to", "")
         page.wait_for_timeout(300)
 
+        # 投稿の表示順(記載順)も、絞り込みボタンと同じシートの並び(放送回で固まっているので、ラジ父大喜利→エンディングのコーナーの順)
+        page.fill("#episode-from", "279")
+        page.fill("#episode-to", "279")
+        page.wait_for_timeout(500)
+        sheet_seq = page.eval_on_selector_all(".result-card .sheet-chip", "els => els.map(e => e.textContent.trim())")
+        order_idx = {n: i for i, n in enumerate(expected_order[1:])}
+        idx = [order_idx[n] for n in sheet_seq]
+        if idx != sorted(idx):
+            fail(f"投稿の記載順が、絞り込みボタンのシートの並びと違います: {sheet_seq}")
+        print(f"OK: 投稿の表示順がボタンの並びと一致 (279回の {len(sheet_seq)} 件)")
+        page.fill("#episode-from", "")
+        page.fill("#episode-to", "")
+        page.wait_for_timeout(300)
+
         # リセットボタン: トップでは出ず、検索・絞り込み中だけ出る。押すとすべて初期状態に戻る
         if page.is_visible("#reset-all"):
             fail("検索していないのに、リセットボタンが表示されています。")
@@ -258,6 +272,28 @@ def main():
         if any(state["inputs"]) or state["active"] != "すべて" or "記載順" not in state["sort"] or "回の投稿" not in state["count"] or state["reset"]:
             fail(f"リセット後に初期状態へ戻っていません: {state}")
         print("OK: リセットボタン(全条件を解除してトップに戻る)")
+
+        # タイトルをタップすると最初の画面に戻る
+        page.click("#filter-panel summary") if not page.evaluate("document.getElementById('filter-panel').open") else None
+        page.fill("#keyword-input", "川北")
+        page.query_selector_all(".filter-btn")[3].click()
+        page.wait_for_timeout(400)
+        page.evaluate("window.scrollTo(0, 600)")
+        page.click("#site-title-link")
+        page.wait_for_timeout(400)
+        back = page.evaluate(
+            """() => ({
+              keyword: document.getElementById('keyword-input').value,
+              active: document.querySelector('.filter-btn.is-active').textContent.trim(),
+              open: document.getElementById('filter-panel').open,
+              y: Math.round(window.scrollY),
+              count: document.getElementById('result-count').textContent.trim(),
+              url: location.pathname,
+            })"""
+        )
+        if back["keyword"] or back["active"] != "すべて" or back["open"] or back["y"] != 0 or "回の投稿" not in back["count"]:
+            fail(f"タイトルをタップしても最初の画面に戻りません: {back}")
+        print("OK: タイトルのタップで最初の画面に戻る")
 
         # 放送回バッジのリンク
         badge_links = page.query_selector_all("a.badge-episode")
