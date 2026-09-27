@@ -132,6 +132,14 @@ def main():
         else:
             print("WARN: リンク付きの放送回バッジが見つかりません(episodes.jsonが空の場合は正常)。")
 
+        # 最新回バナー(episodes.jsonにlatestがある場合のみ表示される)
+        if page.is_visible("#latest-episode"):
+            if not page.query_selector("#latest-episode a.latest-btn"):
+                fail("最新回バナーにApple Podcastsへのリンクがありません。")
+            print("OK: 最新回バナー (%s)" % " ".join((page.text_content("#latest-episode") or "").split()))
+        else:
+            print("WARN: 最新回バナーが表示されていません(episodes.jsonのlatestが空の場合は正常)。")
+
         # 出典表示
         footer_text = page.text_content(".site-footer") or ""
         if "きゅうり大好きっ子ちゃん" not in footer_text or "非公式" not in footer_text:

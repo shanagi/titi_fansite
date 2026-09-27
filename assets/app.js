@@ -294,11 +294,19 @@
       el.hidden = true;
       return;
     }
+    // 「◆281【本編】」の接頭辞は回番号と重複するので、タイトルから外す
+    const title = (latest.title || '').replace(/^\s*◆\s*\d+(?:\.\d+)?\s*【.+?】\s*/, '') || latest.title || '';
+    const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(latest.date || '');
+    const dateText = dm ? `${dm[1]}年${Number(dm[2])}月${Number(dm[3])}日配信` : '';
     el.hidden = false;
-    const dateText = latest.date ? `(${escapeHtml(latest.date)})` : '';
-    el.innerHTML = latest.url
-      ? `最新回: <a href="${escapeHtml(latest.url)}" target="_blank" rel="noopener">${escapeHtml(latest.title || `第${latest.no}回`)}</a> ${dateText}`
-      : `最新回: ${escapeHtml(latest.title || `第${latest.no}回`)} ${dateText}`;
+    el.innerHTML =
+      '<span class="latest-label">最新回</span>' +
+      `<p class="latest-no">第${escapeHtml(latest.no)}回</p>` +
+      `<p class="latest-title">${escapeHtml(title)}</p>` +
+      (dateText ? `<p class="latest-date">${dateText}</p>` : '') +
+      (latest.url
+        ? `<a class="latest-btn" href="${escapeHtml(latest.url)}" target="_blank" rel="noopener">Apple Podcastsで聴く</a>`
+        : '');
   }
 
   function renderSheetFilterButtons() {
