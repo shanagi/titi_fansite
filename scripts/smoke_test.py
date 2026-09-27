@@ -65,6 +65,32 @@ def main():
             fail("冒頭の非公式ファンサイトの説明が見つかりません。")
         print("OK: 冒頭の説明")
 
+        # デザイン: タイトルは黒、「父」だけ赤 / 背景は格子 / フォント
+        title_colors = page.evaluate(
+            """() => {
+              const h = document.querySelector('h1.site-title');
+              const r = h.querySelector('.title-red');
+              return { h1: getComputedStyle(h).color, red: getComputedStyle(r).color, redText: r.textContent };
+            }"""
+        )
+        if title_colors["h1"] != "rgb(0, 0, 0)" or title_colors["red"] != "rgb(220, 0, 0)" or title_colors["redText"] != "父":
+            fail(f"タイトルの色が仕様(黒、「父」のみ赤 #DC0000)と違います: {title_colors}")
+        body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
+        if body_bg.count("linear-gradient") < 2:
+            fail(f"背景の格子が設定されていません: {body_bg!r}")
+        print("OK: タイトルの色 / 背景の格子")
+        fonts_ok = page.evaluate(
+            """async () => {
+              await document.fonts.ready;
+              return [document.fonts.check('700 16px "Zen Maru Gothic"'),
+                      document.fonts.check('400 16px "Zen Kaku Gothic New"')];
+            }"""
+        )
+        if all(fonts_ok):
+            print("OK: Webフォント (Zen Maru Gothic / Zen Kaku Gothic New)")
+        else:
+            print(f"WARN: Webフォントが読み込めていません(オフライン環境では標準フォントで表示されます): {fonts_ok}")
+
         # 表示順: 検索窓 → 最新回のバナー → 最新回の投稿
         banner_visible = page.is_visible("#latest-episode")
         if banner_visible:
@@ -191,7 +217,7 @@ def main():
 
         # ---- フッター(一番下にクレジット) ----
         footer_ps = page.eval_on_selector_all(".site-footer p", "els => els.map(e => e.textContent.trim())")
-        footer_text = " ".join(footer_ps)
+        footer_text = " ".join(footer_ps).replace("\u2060", "")  # 改行位置の制御用の文字は除く
         if "データ提供：きゅうり大好きっ子ちゃん(@pomp364)様" not in footer_text:
             fail("フッターに「データ提供：きゅうり大好きっ子ちゃん(@pomp364)様」がありません。")
         if "非公式" not in footer_text:

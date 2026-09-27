@@ -236,9 +236,9 @@
 
     li.innerHTML = `
       <div class="card-header">
+        <span class="sheet-chip">${escapeHtml(record.sheetLabel)}</span>
         ${episodeBadge}
         ${radioNameHtml}
-        <span class="sheet-name">${escapeHtml(record.sheetLabel)}</span>
         ${buildBadgesHtml(record)}
       </div>
       <div class="card-body">${buildBodyHtml(record, terms)}</div>
@@ -396,7 +396,7 @@
     const dateText = dm ? `${dm[1]}年${Number(dm[2])}月${Number(dm[3])}日配信` : '';
     el.innerHTML =
       '<span class="latest-label">最新回</span>' +
-      `<p class="latest-no">第${escapeHtml(latest.no)}回</p>` +
+      `<p class="latest-no"><span class="latest-num">${escapeHtml(latest.no)}</span><span class="latest-unit">回</span></p>` +
       `<p class="latest-title">${escapeHtml(title)}</p>` +
       (dateText ? `<p class="latest-date">${dateText}</p>` : '') +
       (latest.url

@@ -5,20 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ラジ父 非公式ファンサイト</title>
 <meta name="description" content="TBSラジオ「真空ジェシカのラジオ父ちゃん」の投稿を検索できる非公式ファンサイトです。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 読み込む太さは最小限: 本文=Zen Kaku Gothic New 400、見出し・太字=Zen Maru Gothic 700。読み込み前は標準フォントで表示される(display=swap) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400&family=Zen+Maru+Gothic:wght@700&display=swap">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
 <header class="site-header">
-  <h1>ラジ父 非公式ファンサイト</h1>
-  <div class="intro">
+  <div class="header-band">
+    <h1 class="site-title">ラジ<span class="title-red">父</span> 非公式ファンサイト</h1>
+  </div>
+  <div class="intro wrap">
     <p>このサイトは、TBSラジオのポッドキャスト「真空ジェシカのラジオ父ちゃん」(通称ラジ父)のリスナー投稿を検索できる、<strong>非公式のファンサイト</strong>です。番組・TBSラジオ・出演者・制作関係者とは一切関係ありません。</p>
     <p>掲載している投稿は、きゅうり大好きっ子ちゃん(@pomp364)様が作成・公開されているスプレッドシートを、ご本人の許諾のもとで表示したものです。</p>
   </div>
 </header>
 
 <div class="search-bar" role="search">
-  <input id="keyword-input" type="search" placeholder="キーワードで検索(スペース区切りでAND検索)" aria-label="キーワード検索">
+  <input id="keyword-input" type="search" placeholder="キーワード検索(スペースでAND)" aria-label="キーワード検索">
   <input id="radioname-input" type="search" placeholder="ラジオネームで絞り込み" aria-label="ラジオネーム検索">
   <div id="radioname-exact-filter" class="active-filter" hidden>
     <span>絞り込み中: <strong id="radioname-exact-value"></strong></span>
@@ -55,7 +61,8 @@
 </main>
 
 <footer class="site-footer">
-  <p>データ提供：<a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>様</p>
+  <!-- 「様」だけが次の行に落ちないよう、直前にワードジョイナー(U+2060)を入れている -->
+  <p>データ提供：<a href="https://x.com/pomp364" target="_blank" rel="noopener">きゅうり大好きっ子ちゃん(@pomp364)</a>&#8288;様</p>
   <p><a href="https://docs.google.com/spreadsheets/d/1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo/htmlview" target="_blank" rel="noopener">元スプレッドシート</a></p>
   <p>このサイトは非公式のファンサイトです。TBSラジオ・真空ジェシカ・出演者とは関係ありません。</p>
   <p>サイト作成：<a href="https://x.com/shanagi314" target="_blank" rel="noopener">shanagi(@shanagi314)</a></p>
