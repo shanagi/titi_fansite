@@ -1,13 +1,19 @@
 // config.js — シート名・列の表示ルール
 // シートを追加・変更するときは、このファイルだけを直す(app.js にシート名を書かない)。
 //
+// シート設定の name はスプレッドシートのタブ名(取得に使うので変えない)。
+// 画面での表示名を変えたいときは displayName を指定する。
+//
 // フィールドの mode:
 //   normal  … 「ラベル: 値」の形でブロック表示。検索対象。
-//   quoted  … 「ラベル「値」」の形でインライン表示し、同じ行の quoted 同士を繋げる。検索対象。
+//   quoted  … 「ラベル「値」」の形で表示し、quoted 同士は改行で区切る。検索対象。
 //   combine … combineGroup が同じフィールド同士を、ラベルなしで1つの本文として繋げて表示。検索対象。
 //   heading … 本文の先頭に見出し的に表示。検索対象。
 //   badge   … 値が入っていればバッジとして表示(本文には出さない)。検索対象外。
 //   exclude … 表示も検索もしない(例: タイトルコール)。
+//
+// フィールドの breakAfter(任意・正規表現):
+//   一致した箇所の直後で改行する。スプレッドシート側の改行は空白として扱う(従来どおり)。
 
 const CONFIG = {
   // データ元スプレッドシート
@@ -46,6 +52,7 @@ const CONFIG = {
   sheets: [
     {
       name: 'ともはるさん',
+      displayName: 'ともはるさ～ん',
       fields: [
         { column: '川北', label: '川北', mode: 'quoted' },
         { column: 'ガク', label: 'ガク', mode: 'quoted' },
@@ -61,8 +68,15 @@ const CONFIG = {
     {
       name: 'エンディングのコーナー',
       fields: [
+        {
+          column: 'ネタ',
+          label: 'ネタ',
+          mode: 'normal',
+          // 「〜」は番組名 / 「〜」の番組名 の直後で改行する(「は」の省略や「Amazon」のみの表記も許容)。
+          // 「」の直後に続く場合だけ対象にし、セリフ中や注記中の同じ語では改行しない。
+          breakAfter: /」[はの]?[ \u3000]?(?:radiko|podcast|amazon(?: ?music)?|ラジオクラウド|spotify)/gi,
+        },
         { column: '件名', label: '件名', mode: 'normal' },
-        { column: 'ネタ', label: 'ネタ', mode: 'normal' },
       ],
     },
     {
