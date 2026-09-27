@@ -329,6 +329,19 @@ def main():
         page.wait_for_timeout(300)
         print(f"OK: ラジ父大喜利（お眼鏡賞）の絞り込み ({expected_marked}件 / ラジ父大喜利全体 {all_count}件)")
 
+        # 表記: ページ内(投稿の本文を除く)の「ポッドキャスト」「podcast」は、「Podcast」にそろえる
+        notation = page.evaluate(
+            """() => {
+              const c = document.body.cloneNode(true);
+              c.querySelectorAll('.card-body, script').forEach(e => e.remove());
+              const text = c.textContent;
+              return text.match(/ポッドキャスト|(?<![A-Za-z])podcast(?![A-Za-z])/g) || [];
+            }"""
+        )
+        if notation:
+            fail(f"「Podcast」以外の表記が残っています: {notation}")
+        print("OK: Podcastの表記(投稿の本文を除く)")
+
         # ---- 投稿カードの見出し・右下のリンク ----
         page.fill("#keyword-input", "ネタ")
         page.wait_for_timeout(500)
@@ -353,7 +366,7 @@ def main():
             fail(f"放送回がリンクのままです(絞り込みボタンにする): {head['episode']}")
         print("OK: 見出しの丸枠(コーナー名・放送回・ラジオネーム)と「ラジオネーム：」の表記")
 
-        # カードの右下に「この回をpodcastで聞く」のリンク
+        # カードの右下に「この回をPodcastで聞く」のリンク
         pod = page.evaluate(
             """() => {
               const card = [...document.querySelectorAll('.result-card')].find(c => c.querySelector('.podcast-link'));
@@ -364,11 +377,11 @@ def main():
                        right: c.right - a.right, bottom: c.bottom - a.bottom, leftHalf: a.left > c.left + c.width / 2 };
             }"""
         )
-        if not pod or pod["text"] != "この回をpodcastで聞く" or "podcasts.apple.com" not in pod["href"] or pod["target"] != "_blank":
-            fail(f"カード右下のpodcastリンクが仕様と違います: {pod}")
+        if not pod or pod["text"] != "この回をPodcastで聞く" or "podcasts.apple.com" not in pod["href"] or pod["target"] != "_blank":
+            fail(f"カード右下のPodcastリンクが仕様と違います: {pod}")
         if pod["right"] > 30 or pod["bottom"] > 30:
-            fail(f"podcastリンクがカードの右下にありません: {pod}")
-        print("OK: カード右下の「この回をpodcastで聞く」リンク")
+            fail(f"Podcastリンクがカードの右下にありません: {pod}")
+        print("OK: カード右下の「この回をPodcastで聞く」リンク")
 
         # 放送回のタップは、その回だけへの絞り込み
         ep_label = page.eval_on_selector("button.badge-episode", "e => e.textContent.trim()")
@@ -454,12 +467,12 @@ def main():
             fail(f"タイトルをタップしても最初の画面に戻りません: {back}")
         print("OK: タイトルのタップで最初の画面に戻る")
 
-        # カードのpodcastリンク(整数の回で episodes.json にデータがある場合)
+        # カードのPodcastリンク(整数の回で episodes.json にデータがある場合)
         pod_links = page.query_selector_all(".result-card .podcast-link")
         if pod_links:
-            print(f"OK: 「この回をpodcastで聞く」リンクあり ({len(pod_links)}件)")
+            print(f"OK: 「この回をPodcastで聞く」リンクあり ({len(pod_links)}件)")
         else:
-            print("WARN: podcastリンクが見つかりません(episodes.jsonが空の場合は正常)。")
+            print("WARN: Podcastリンクが見つかりません(episodes.jsonが空の場合は正常)。")
 
         # ---- フッター(一番下にクレジット) ----
         footer_ps = page.eval_on_selector_all(".site-footer p", "els => els.map(e => e.textContent.trim())")

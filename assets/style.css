@@ -659,7 +659,7 @@ button.pill:active {
   font-weight: 700;
 }
 
-/* カード右下: この回をpodcastで聞く */
+/* カード右下: この回をPodcastで聞く */
 .card-footer {
   display: flex;
   justify-content: flex-end;
