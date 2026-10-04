@@ -118,6 +118,7 @@ const CONFIG = {
     },
     {
       name: '韻豆',
+      displayName: 'みんなで！韻豆',
       subFilters: [
         {
           key: 'answer',
