@@ -112,6 +112,7 @@ const CONFIG = {
     },
     {
       name: 'パンダマン',
+      displayName: 'パンダマン/デービーバックファイト',
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
       ],
