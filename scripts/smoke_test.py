@@ -221,7 +221,7 @@ def main():
         sheet_buttons = page.query_selector_all(".filter-btn")
         expected_order = [
             "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャーのコーナー", "俺にもありました",
-            "優しいゴージャスさん", "パンダマン", "みんなで！韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
+            "優しいゴージャスさん", "パンダマン/デービーバックファイト", "みんなで！韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
         ]
         actual_order = [b.text_content().strip() for b in sheet_buttons]
         if actual_order != expected_order:
