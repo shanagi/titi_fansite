@@ -483,7 +483,7 @@
 
   function updateSortButtonLabel() {
     const btn = document.getElementById('sort-toggle');
-    const labels = { original: '記載順', asc: '昇順', desc: '降順' };
+    const labels = { original: 'コーナー順', asc: '放送回昇順', desc: '放送回降順' };
     btn.textContent = `並び替え: ${labels[state.sortMode]}`;
   }
 
