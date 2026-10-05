@@ -220,8 +220,8 @@ def main():
         # (ボタン一覧は絞り込み変更のたびに再描画されるため、都度クエリし直す)
         sheet_buttons = page.query_selector_all(".filter-btn")
         expected_order = [
-            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャー", "俺にもありました",
-            "優しいゴージャスさん", "パンダマン", "韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
+            "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャーのコーナー", "俺にもありました",
+            "優しいゴージャスさん", "パンダマン/デービーバックファイト", "みんなで！韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
         ]
         actual_order = [b.text_content().strip() for b in sheet_buttons]
         if actual_order != expected_order:
@@ -258,12 +258,12 @@ def main():
         page.wait_for_timeout(200)
         label_desc = page.text_content("#sort-toggle")
         first_desc = page.eval_on_selector(".result-card .badge-episode", "e => e.textContent.trim()")
-        if "昇順" not in label_asc or "降順" not in label_desc:
+        if "放送回昇順" not in label_asc or "放送回降順" not in label_desc:
             fail(f"並び替えボタンの表示が想定と違います: {label_asc!r} / {label_desc!r}")
         if int(first_asc.rstrip("回")) >= int(first_desc.rstrip("回")):
             fail(f"並び替えが効いていません: 昇順の先頭={first_asc} / 降順の先頭={first_desc}")
         print(f"OK: 並び替え (昇順の先頭 {first_asc} / 降順の先頭 {first_desc})")
-        page.click("#sort-toggle")  # 記載順に戻す
+        page.click("#sort-toggle")  # コーナー順に戻す
         page.fill("#episode-from", "")
         page.fill("#episode-to", "")
         page.wait_for_timeout(300)
@@ -500,7 +500,7 @@ def main():
               reset: !document.getElementById('reset-all').hidden,
             })"""
         )
-        if any(state["inputs"]) or state["active"] != "すべて" or "記載順" not in state["sort"] or "回の投稿" not in state["count"] or state["reset"]:
+        if any(state["inputs"]) or state["active"] != "すべて" or "コーナー順" not in state["sort"] or "回の投稿" not in state["count"] or state["reset"]:
             fail(f"リセット後に初期状態へ戻っていません: {state}")
         print("OK: リセットボタン(全条件を解除してトップに戻る)")
 

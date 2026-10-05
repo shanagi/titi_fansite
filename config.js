@@ -87,6 +87,7 @@ const CONFIG = {
     },
     {
       name: 'ワーキャー',
+      displayName: 'ワーキャーのコーナー',
       fields: [
         { column: 'ワーキャー', mode: 'combine', combineGroup: 'wakya' },
         { column: '玄人ウケ', mode: 'combine', combineGroup: 'wakya' },
@@ -111,12 +112,14 @@ const CONFIG = {
     },
     {
       name: 'パンダマン',
+      displayName: 'パンダマン/デービーバックファイト',
       fields: [
         { column: 'ネタ', label: 'ネタ', mode: 'normal' },
       ],
     },
     {
       name: '韻豆',
+      displayName: 'みんなで！韻豆',
       subFilters: [
         {
           key: 'answer',
