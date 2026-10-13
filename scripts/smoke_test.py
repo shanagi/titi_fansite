@@ -389,11 +389,16 @@ def main():
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
 
         # その他 → 「テーマ」で絞り込み(選択肢はあらかじめ書かず、データから毎回拾い集める)
+        # テーマが「-」の投稿と、テーマ自体が空欄の投稿(メールだけの投稿)は、同じ「-」にまとめる
         hdr, rows = fetch_rows("その他")
         i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
-        themes = collections.Counter(
-            r[i_theme].strip() for r in rows if len(r) > i_theme and r[i_theme].strip() and (r[i_theme].strip() or r[i_mail].strip())
-        )
+        themes = collections.Counter()
+        for r in rows:
+            theme = r[i_theme].strip() if len(r) > i_theme else ""
+            mail = r[i_mail].strip() if len(r) > i_mail else ""
+            if not theme and not mail:
+                continue  # 本文が丸ごと空の行は、サイトにも表示されない
+            themes["-" if theme == "" else theme] += 1
         select_sheet("その他")
         theme_buttons = page.query_selector_all('.filter-btn-sub[data-subfilter="theme"]')
         # 「すべて」+ 実際に出現するテーマの種類数、のはず
@@ -410,7 +415,7 @@ def main():
         got_top = sub_count()
         if got_top != top_expect:
             fail(f"テーマ「{top_theme}」の絞り込みの件数が違います: {got_top}(期待{top_expect})")
-        # 「-」は、ボタンの表示だけ「-（件名不明）」になり、一致判定は元の値のまま
+        # 「-」(テーマが「-」の投稿+テーマ空欄の投稿をまとめたもの)は、「-（件名不明）」と表示される
         if "-" in themes:
             dash_btn = page.query_selector('.filter-btn-sub[data-subfilter="theme"][data-subvalue="-"]')
             if not dash_btn or dash_btn.text_content().strip() != "-（件名不明）":

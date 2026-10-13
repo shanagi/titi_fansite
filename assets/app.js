@@ -377,8 +377,8 @@
               return false;
             }
           } else if (sub.type === 'dynamic-value') {
-            // 選択肢をあらかじめ持たないため、列の値そのものと比べる
-            if (getColumnValue(r, sub.column) !== state.subFilter.value) return false;
+            // 選択肢をあらかじめ持たないため、列の値そのものと比べる(空欄は groupEmptyAs にまとめる)
+            if (dynamicGroupValue(r, sub) !== state.subFilter.value) return false;
           }
         }
       }
@@ -463,13 +463,20 @@
     return p ? p.value : '';
   }
 
+  // type: 'dynamic-value' で、絞り込みに使う値。空欄は、sub.groupEmptyAs が指定されていれば、その値にまとめる
+  // (例: テーマが空欄の投稿を、「-」の投稿と同じ「-（件名不明）」にまとめる)。
+  function dynamicGroupValue(record, sub) {
+    const raw = getColumnValue(record, sub.column);
+    return raw === '' && sub.groupEmptyAs !== undefined ? sub.groupEmptyAs : raw;
+  }
+
   // type: 'dynamic-value' の選択肢を、今読み込んでいるデータから毎回拾い集める(件数の多い順。同数は五十音順)。
   // あらかじめ選択肢を書かないので、スプレッドシート側に新しい値が増えても、そのまま反映される。
   function dynamicSubFilterOptions(sheetName, sub) {
     const counts = new Map();
     allRecords.forEach((r) => {
       if (r.sheetName !== sheetName) return;
-      const val = getColumnValue(r, sub.column);
+      const val = dynamicGroupValue(r, sub);
       if (val === '') return;
       counts.set(val, (counts.get(val) || 0) + 1);
     });
