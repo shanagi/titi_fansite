@@ -451,6 +451,33 @@ def main():
         else:
             print("WARN: 「---」を含む投稿が見つからず、改行の確認をスキップしました。")
 
+        # その他: 本文の最後がURLの投稿は、「この投稿をみる」のリンクになる(URLの文字は表示に出ない)
+        url_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and re.search(r"https?://\S+\s*$", r[i_mail])), None)
+        if url_theme is not None:
+            url_theme_key = "-" if url_theme == "" else url_theme
+            ubtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{url_theme_key}"]')
+            if not ubtn:
+                fail(f"文末にURLがある投稿のテーマ「{url_theme_key}」のボタンが見つかりません。")
+            ubtn.click()
+            page.wait_for_timeout(400)
+            url_check = page.evaluate(
+                """() => {
+                  const card = [...document.querySelectorAll('.result-card')].find(c => c.querySelector('.field-value a'));
+                  if (!card) return null;
+                  const a = card.querySelector('.field-value a');
+                  return { label: a.textContent.trim(), href: a.href, target: a.target, bodyText: card.querySelector('.field-value').textContent };
+                }"""
+            )
+            if not url_check:
+                fail("文末にURLがある投稿があるのに、「この投稿をみる」のリンクになっているカードが見つかりません。")
+            if url_check["label"] != "この投稿をみる" or not url_check["href"].startswith("http") or url_check["target"] != "_blank":
+                fail(f"「この投稿をみる」リンクの表示・リンク先が仕様と違います: {url_check}")
+            if "http://" in url_check["bodyText"] or "https://" in url_check["bodyText"]:
+                fail(f"URLの文字がそのまま本文に残っています: {url_check['bodyText'][-80:]!r}")
+            print(f"OK: その他「メール」の文末URLが「この投稿をみる」のリンクになっている (テーマ「{url_theme_key}」、{url_check['href']})")
+        else:
+            print("WARN: 文末にURLがある投稿が見つからず、リンク化の確認をスキップしました。")
+
         page.click('.filter-btn-sub[data-subfilter="theme"][data-subvalue=""]')  # すべてに戻す
         page.wait_for_timeout(300)
 

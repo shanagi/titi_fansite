@@ -114,6 +114,7 @@
         combineGroup: f.combineGroup,
         breakAfter: f.breakAfter,
         breakAt: f.breakAt,
+        linkTrailingUrl: f.linkTrailingUrl,
         value: (row[f.column] || '').toString().trim(),
       }));
 
@@ -166,28 +167,52 @@
     return html;
   }
 
-  // 値をHTMLにする。breakAfter/breakAt がある項目は、一致箇所の直後/一致箇所そのもので改行する。
-  function valueHtml(part, hl) {
+  // breakAfter/breakAt の指定にもとづいて、値を表示用の行に分ける(改行しない項目は1行のまま)。
+  function splitIntoLines(part) {
     if (part.breakAt) {
       // 一致した文字そのものは表示に残さず、そこで区切って改行する(例: 本文中の「---」)
       return part.value
         .split(part.breakAt)
         .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => hl(s))
-        .join('<br>');
+        .filter(Boolean);
     }
-    if (!part.breakAfter) return hl(part.value);
-    const MARK = '\u0001';
-    const text = part.value
-      .replace(part.breakAfter, (m) => m + MARK)
-      .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
-      .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
-    return text
-      .split(MARK)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => hl(line))
+    if (part.breakAfter) {
+      const MARK = '\u0001';
+      const text = part.value
+        .replace(part.breakAfter, (m) => m + MARK)
+        .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
+        .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
+      return text
+        .split(MARK)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+    return [part.value];
+  }
+
+  // 本文の最後がURLで終わっていれば、「この投稿をみる」のリンクに変える(URLの文字は表示に出さない)
+  const TRAILING_URL_RE = /^([\s\S]*?)\s*(https?:\/\/\S+)\s*$/;
+
+  function linkifyTrailingUrl(line, hl) {
+    const m = TRAILING_URL_RE.exec(line);
+    if (!m) return null;
+    const prefix = m[1].trim();
+    const linkHtml = `<a href="${escapeHtml(m[2])}" target="_blank" rel="noopener">この投稿をみる</a>`;
+    return prefix ? `${hl(prefix)} ${linkHtml}` : linkHtml;
+  }
+
+  // 値をHTMLにする。
+  function valueHtml(part, hl) {
+    const lines = splitIntoLines(part);
+    if (!lines.length) return '';
+    return lines
+      .map((line, i) => {
+        if (part.linkTrailingUrl && i === lines.length - 1) {
+          const linked = linkifyTrailingUrl(line, hl);
+          if (linked !== null) return linked;
+        }
+        return hl(line);
+      })
       .join('<br>');
   }
 
