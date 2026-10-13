@@ -289,6 +289,7 @@ def main():
         print("OK: 免責の文言(冒頭・フッター)")
 
         # 追加の絞り込み(サブフィルター): シートを選んだときだけ現れる
+        import collections
         import csv, io, urllib.parse, urllib.request
 
         sheet_id = "1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo"
@@ -386,6 +387,99 @@ def main():
         if got_yes != expect_yes or got_no != expect_no:
             fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
+
+        # その他 → 「テーマ」で絞り込み(選択肢はあらかじめ書かず、データから毎回拾い集める)
+        # テーマが「-」の投稿と、テーマ自体が空欄の投稿(メールだけの投稿)は、同じ「-」にまとめる
+        hdr, rows = fetch_rows("その他")
+        i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
+        themes = collections.Counter()
+        for r in rows:
+            theme = r[i_theme].strip() if len(r) > i_theme else ""
+            mail = r[i_mail].strip() if len(r) > i_mail else ""
+            if not theme and not mail:
+                continue  # 本文が丸ごと空の行は、サイトにも表示されない
+            themes["-" if theme == "" else theme] += 1
+        select_sheet("その他")
+        theme_buttons = page.query_selector_all('.filter-btn-sub[data-subfilter="theme"]')
+        # 「すべて」+ 実際に出現するテーマの種類数、のはず
+        if len(theme_buttons) != len(themes) + 1:
+            fail(f"「テーマ」の選択肢の数が、スプレッドシートの実際の値({len(themes)}種類)と合いません(ボタン{len(theme_buttons)}個)。")
+        # 最頻のテーマで絞り込み、件数が一致するか確認
+        top_theme, top_expect = themes.most_common(1)[0]
+        top_label = "-（件名不明）" if top_theme == "-" else top_theme
+        btn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{top_theme}"]')
+        if not btn or btn.text_content().strip() != top_label:
+            fail(f"テーマ「{top_theme}」のボタンが、想定の表示(「{top_label}」)と違います。")
+        btn.click()
+        page.wait_for_timeout(400)
+        got_top = sub_count()
+        if got_top != top_expect:
+            fail(f"テーマ「{top_theme}」の絞り込みの件数が違います: {got_top}(期待{top_expect})")
+        # 「-」(テーマが「-」の投稿+テーマ空欄の投稿をまとめたもの)は、「-（件名不明）」と表示される
+        if "-" in themes:
+            dash_btn = page.query_selector('.filter-btn-sub[data-subfilter="theme"][data-subvalue="-"]')
+            if not dash_btn or dash_btn.text_content().strip() != "-（件名不明）":
+                fail(f"テーマ「-」のボタンの表示が「-（件名不明）」になっていません: {dash_btn.text_content().strip() if dash_btn else None!r}")
+            dash_btn.click()
+            page.wait_for_timeout(400)
+            if sub_count() != themes["-"]:
+                fail(f"テーマ「-」の絞り込みの件数が違います: {sub_count()}(期待{themes['-']})")
+        print(f"OK: その他「テーマ」の絞り込み(選択肢{len(themes)}種類、最多「{top_label}」{top_expect}件)")
+
+        # その他: 本文(メール)中の「---」は、文字が消えてそこで改行される。
+        # 「---」を含む投稿が実際にあるテーマを選んで絞り込んでから確認する(絞り込まないと該当投稿が画面に出ない場合がある)。
+        dash_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and "---" in r[i_mail]), None)
+        if dash_theme is not None:
+            dash_theme_key = "-" if dash_theme == "" else dash_theme
+            dbtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{dash_theme_key}"]')
+            if not dbtn:
+                fail(f"「---」を含む投稿のテーマ「{dash_theme_key}」のボタンが見つかりません。")
+            dbtn.click()
+            page.wait_for_timeout(400)
+            dash_check = page.evaluate(
+                """() => {
+                  const vals = [...document.querySelectorAll('.result-card .field-normal .field-value')];
+                  const hit = vals.find(v => v.innerHTML.includes('<br>'));
+                  return hit ? { html: hit.innerHTML, text: hit.textContent } : null;
+                }"""
+            )
+            if not dash_check:
+                fail("「---」を含む投稿があるのに、改行(<br>)になっているメール本文が見つかりません。")
+            if "---" in dash_check["text"]:
+                fail(f"「---」が改行に変わらず、文字として残っています: {dash_check['text'][:80]!r}")
+            print(f"OK: その他「メール」の「---」が改行になっている (テーマ「{dash_theme_key}」、例: {dash_check['text'][:40]}…)")
+        else:
+            print("WARN: 「---」を含む投稿が見つからず、改行の確認をスキップしました。")
+
+        # その他: 本文の最後がURLの投稿は、「この投稿をみる」のリンクになる(URLの文字は表示に出ない)
+        url_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and re.search(r"https?://\S+\s*$", r[i_mail])), None)
+        if url_theme is not None:
+            url_theme_key = "-" if url_theme == "" else url_theme
+            ubtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{url_theme_key}"]')
+            if not ubtn:
+                fail(f"文末にURLがある投稿のテーマ「{url_theme_key}」のボタンが見つかりません。")
+            ubtn.click()
+            page.wait_for_timeout(400)
+            url_check = page.evaluate(
+                """() => {
+                  const card = [...document.querySelectorAll('.result-card')].find(c => c.querySelector('.field-value a'));
+                  if (!card) return null;
+                  const a = card.querySelector('.field-value a');
+                  return { label: a.textContent.trim(), href: a.href, target: a.target, bodyText: card.querySelector('.field-value').textContent };
+                }"""
+            )
+            if not url_check:
+                fail("文末にURLがある投稿があるのに、「この投稿をみる」のリンクになっているカードが見つかりません。")
+            if url_check["label"] != "この投稿をみる" or not url_check["href"].startswith("http") or url_check["target"] != "_blank":
+                fail(f"「この投稿をみる」リンクの表示・リンク先が仕様と違います: {url_check}")
+            if "http://" in url_check["bodyText"] or "https://" in url_check["bodyText"]:
+                fail(f"URLの文字がそのまま本文に残っています: {url_check['bodyText'][-80:]!r}")
+            print(f"OK: その他「メール」の文末URLが「この投稿をみる」のリンクになっている (テーマ「{url_theme_key}」、{url_check['href']})")
+        else:
+            print("WARN: 文末にURLがある投稿が見つからず、リンク化の確認をスキップしました。")
+
+        page.click('.filter-btn-sub[data-subfilter="theme"][data-subvalue=""]')  # すべてに戻す
+        page.wait_for_timeout(300)
 
         # シートを切り替えると、追加の絞り込みは消える(選択も解除される)
         select_sheet("パンダマン")

@@ -113,6 +113,8 @@
         mode: f.mode,
         combineGroup: f.combineGroup,
         breakAfter: f.breakAfter,
+        breakAt: f.breakAt,
+        linkTrailingUrl: f.linkTrailingUrl,
         value: (row[f.column] || '').toString().trim(),
       }));
 
@@ -165,19 +167,52 @@
     return html;
   }
 
-  // 値をHTMLにする。breakAfter がある項目は、一致箇所の直後で改行する。
+  // breakAfter/breakAt の指定にもとづいて、値を表示用の行に分ける(改行しない項目は1行のまま)。
+  function splitIntoLines(part) {
+    if (part.breakAt) {
+      // 一致した文字そのものは表示に残さず、そこで区切って改行する(例: 本文中の「---」)
+      return part.value
+        .split(part.breakAt)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    if (part.breakAfter) {
+      const MARK = '\u0001';
+      const text = part.value
+        .replace(part.breakAfter, (m) => m + MARK)
+        .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
+        .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
+      return text
+        .split(MARK)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+    return [part.value];
+  }
+
+  // 本文の最後がURLで終わっていれば、「この投稿をみる」のリンクに変える(URLの文字は表示に出さない)
+  const TRAILING_URL_RE = /^([\s\S]*?)\s*(https?:\/\/\S+)\s*$/;
+
+  function linkifyTrailingUrl(line, hl) {
+    const m = TRAILING_URL_RE.exec(line);
+    if (!m) return null;
+    const prefix = m[1].trim();
+    const linkHtml = `<a href="${escapeHtml(m[2])}" target="_blank" rel="noopener">この投稿をみる</a>`;
+    return prefix ? `${hl(prefix)} ${linkHtml}` : linkHtml;
+  }
+
+  // 値をHTMLにする。
   function valueHtml(part, hl) {
-    if (!part.breakAfter) return hl(part.value);
-    const MARK = '\u0001';
-    const text = part.value
-      .replace(part.breakAfter, (m) => m + MARK)
-      .replace(new RegExp(MARK + '[\\s\\u3000]+', 'g'), MARK) // 直後の空白・元の改行は吸収する
-      .replace(/\r?\n/g, ' '); // その他の元の改行は従来どおり空白扱い
-    return text
-      .split(MARK)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => hl(line))
+    const lines = splitIntoLines(part);
+    if (!lines.length) return '';
+    return lines
+      .map((line, i) => {
+        if (part.linkTrailingUrl && i === lines.length - 1) {
+          const linked = linkifyTrailingUrl(line, hl);
+          if (linked !== null) return linked;
+        }
+        return hl(line);
+      })
       .join('<br>');
   }
 
@@ -376,6 +411,9 @@
             } else if (val !== state.subFilter.value) {
               return false;
             }
+          } else if (sub.type === 'dynamic-value') {
+            // 選択肢をあらかじめ持たないため、列の値そのものと比べる(空欄は groupEmptyAs にまとめる)
+            if (dynamicGroupValue(r, sub) !== state.subFilter.value) return false;
           }
         }
       }
@@ -460,6 +498,32 @@
     return p ? p.value : '';
   }
 
+  // type: 'dynamic-value' で、絞り込みに使う値。空欄は、sub.groupEmptyAs が指定されていれば、その値にまとめる
+  // (例: テーマが空欄の投稿を、「-」の投稿と同じ「-（件名不明）」にまとめる)。
+  function dynamicGroupValue(record, sub) {
+    const raw = getColumnValue(record, sub.column);
+    return raw === '' && sub.groupEmptyAs !== undefined ? sub.groupEmptyAs : raw;
+  }
+
+  // type: 'dynamic-value' の選択肢を、今読み込んでいるデータから毎回拾い集める(件数の多い順。同数は五十音順)。
+  // あらかじめ選択肢を書かないので、スプレッドシート側に新しい値が増えても、そのまま反映される。
+  function dynamicSubFilterOptions(sheetName, sub) {
+    const counts = new Map();
+    allRecords.forEach((r) => {
+      if (r.sheetName !== sheetName) return;
+      const val = dynamicGroupValue(r, sub);
+      if (val === '') return;
+      counts.set(val, (counts.get(val) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+      .map(([value, count]) => ({
+        value,
+        count,
+        label: (sub.labelOverrides && sub.labelOverrides[value]) || value,
+      }));
+  }
+
   // 現在の activeSheet に定義されている、state.subFilter.key と一致する追加の絞り込みの定義
   function findActiveSubFilter() {
     if (state.subFilter === null) return null;
@@ -536,8 +600,9 @@
             `${escapeHtml(sub.label)}</button></div>`
           );
         }
-        // type: 'value' … 「すべて」+ options
-        const optionButtons = [{ value: '', label: 'すべて' }].concat(sub.options)
+        // type: 'value' … あらかじめ書かれた options / type: 'dynamic-value' … データから毎回拾い集めた選択肢
+        const options = sub.type === 'dynamic-value' ? dynamicSubFilterOptions(state.activeSheet, sub) : sub.options;
+        const optionButtons = [{ value: '', label: 'すべて' }].concat(options)
           .map((opt) => {
             const isAll = opt.value === '';
             const active =
