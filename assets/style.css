@@ -105,6 +105,7 @@ input {
 .active-filters,
 .latest-banner,
 main,
+.odai-section,
 .site-footer {
   width: min(calc(100% - var(--gutter) * 2), var(--max-width));
   margin-left: auto;
@@ -766,6 +767,64 @@ mark {
 
 #load-more:active {
   transform: scale(0.98);
+}
+
+/* ---------- お題一覧(トップページにだけ表示) ---------- */
+.odai-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.odai-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-head);
+  font-size: 1rem;
+}
+
+.odai-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.odai-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-faint);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.odai-item:hover {
+  background: var(--accent-soft);
+}
+
+.odai-item:active {
+  transform: scale(0.99);
+}
+
+.odai-episode {
+  flex: none;
+  background: var(--bg);
+}
+
+.odai-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- フッター(クレジット) ---------- */
