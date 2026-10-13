@@ -314,6 +314,43 @@
     return max;
   }
 
+  // 「お題一覧」(トップページにだけ表示)。放送回ごとに1件、降順で並べる。
+  let odaiListData = [];
+
+  function buildOdaiList() {
+    const cfg = CONFIG.odaiList;
+    if (!cfg) return [];
+    const byEpisode = new Map();
+    allRecords.forEach((r) => {
+      if (r.sheetName !== cfg.sheetName) return;
+      if (r.episodeNumeric === null || byEpisode.has(r.episodeNumeric)) return;
+      const topic = getColumnValue(r, cfg.column);
+      if (!topic) return;
+      byEpisode.set(r.episodeNumeric, { epNumeric: r.episodeNumeric, epRaw: r.episodeRaw, topic });
+    });
+    return [...byEpisode.values()].sort((a, b) => b.epNumeric - a.epNumeric);
+  }
+
+  function renderOdaiList() {
+    const cfg = CONFIG.odaiList;
+    const section = document.getElementById('odai-section');
+    if (!cfg || !odaiListData.length) {
+      section.hidden = true;
+      return;
+    }
+    document.querySelector('#odai-section .odai-heading').textContent = cfg.heading;
+    document.getElementById('odai-list').innerHTML = odaiListData
+      .map(
+        (item) =>
+          `<li><button type="button" class="odai-item" data-episode="${escapeHtml(item.epNumeric)}">` +
+          `<span class="pill odai-episode">${escapeHtml(item.epRaw)}回</span>` +
+          `<span class="odai-text">${escapeHtml(item.topic)}</span>` +
+          `</button></li>`
+      )
+      .join('');
+    // 表示・非表示は render() が、検索中かどうかに応じて切り替える
+  }
+
   function render() {
     const resultsList = document.getElementById('results-list');
     const resultCount = document.getElementById('result-count');
@@ -361,6 +398,7 @@
     banner.hidden = searching || !latestBannerReady;
     sortToggle.hidden = !searching;
     document.getElementById('reset-all').hidden = !searching;
+    document.getElementById('odai-section').hidden = searching || !odaiListData.length;
 
     if (searching) {
       resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
@@ -649,6 +687,27 @@
     render();
   }
 
+  // お題をタップしたときの絞り込み: そのシート + その回だけにする(ほかの検索・絞り込みは解除する)
+  function applyOdaiFilter(epNumeric) {
+    const cfg = CONFIG.odaiList;
+    if (!cfg) return;
+    state.keyword = '';
+    state.radioQuery = '';
+    state.radioExact = null;
+    state.activeSheet = cfg.sheetName;
+    state.subFilter = null;
+    state.epFrom = epNumeric;
+    state.epTo = epNumeric;
+    resetPaging();
+    document.getElementById('keyword-input').value = '';
+    document.getElementById('radioname-input').value = '';
+    document.getElementById('episode-from').value = String(epNumeric);
+    document.getElementById('episode-to').value = String(epNumeric);
+    renderSheetFilterButtons();
+    render();
+    window.scrollTo(0, 0);
+  }
+
   function setupEvents() {
     const keywordInput = document.getElementById('keyword-input');
     const radioInput = document.getElementById('radioname-input');
@@ -787,6 +846,13 @@
       resetPaging();
       render();
     });
+
+    // お題一覧(トップページ)のタップ
+    document.getElementById('odai-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('.odai-item');
+      if (!btn) return;
+      applyOdaiFilter(parseFloat(btn.dataset.episode));
+    });
   }
 
   // ---------- 初期化 ----------
@@ -817,6 +883,8 @@
 
       renderErrorBanner();
       renderLatestEpisode();
+      odaiListData = buildOdaiList();
+      renderOdaiList();
       render();
     });
   }

@@ -173,6 +173,74 @@ def main():
             fail("Spaceキーで、最新回の投稿を閉じられません。")
         print("OK: 最新回の投稿は折りたたみ(初期は閉じ、タップ・Enter・Spaceで開閉)")
 
+        # ラジ父大喜利 お題一覧(トップページにだけ表示。放送回ごとに1件、降順)
+        import collections as _collections
+        import csv as _csv
+        import io as _io
+        import urllib.parse as _urllib_parse
+        import urllib.request as _urllib_request
+
+        _sheet_id = "1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo"
+        _url = f"https://docs.google.com/spreadsheets/d/{_sheet_id}/gviz/tq?" + _urllib_parse.urlencode(
+            {"tqx": "out:csv", "headers": "1", "sheet": "ラジ父大喜利"}
+        )
+        _rows = list(_csv.reader(_io.StringIO(_urllib_request.urlopen(_url).read().decode("utf-8"))))
+        _hdr, _body = _rows[0], _rows[1:]
+        _i_ep, _i_odai, _i_neta = _hdr.index("放送回"), _hdr.index("お題"), _hdr.index("ネタ")
+        _by_ep = {}
+        for _r in _body:
+            if len(_r) <= max(_i_ep, _i_odai, _i_neta):
+                continue
+            _ep = _r[_i_ep].strip()
+            if not _ep or not (_r[_i_odai].strip() or _r[_i_neta].strip()):
+                continue
+            _by_ep.setdefault(_ep, _r[_i_odai].strip())
+        _expected_order = sorted(_by_ep.keys(), key=lambda e: float(e), reverse=True)
+
+        odai_items = page.eval_on_selector_all(
+            ".odai-item",
+            "els => els.map(e => ({ ep: e.querySelector('.odai-episode').textContent.trim(), "
+            "text: e.querySelector('.odai-text').textContent.trim() }))",
+        )
+        odai_eps = [it["ep"].rstrip("回") for it in odai_items]
+        if odai_eps != _expected_order:
+            fail(
+                "お題一覧の並び・件数が、スプレッドシートと一致しません:\n"
+                f"  実際: {odai_eps[:5]}…(全{len(odai_eps)}件)\n  期待: {_expected_order[:5]}…(全{len(_expected_order)}件)"
+            )
+        first_ep = odai_eps[0]
+        first_text_shown = odai_items[0]["text"]
+        if _by_ep[first_ep].split("\n")[0][:10] not in first_text_shown:
+            fail(f"先頭のお題の文言が違います: 表示={first_text_shown!r} / 期待の一部={_by_ep[first_ep]!r}")
+        print(f"OK: ラジ父大喜利 お題一覧(放送回降順、全{len(odai_eps)}件、先頭は第{first_ep}回)")
+
+        # お題をタップすると、ラジ父大喜利 + その回だけに絞り込まれる
+        page.click(".odai-item")
+        page.wait_for_timeout(400)
+        odai_filtered = page.evaluate(
+            """() => ({
+              sheets: [...new Set([...document.querySelectorAll('.result-card .sheet-chip')].map(e => e.textContent.trim()))],
+              eps: [...new Set([...document.querySelectorAll('.result-card .badge-episode')].map(e => e.textContent.trim()))],
+              active: document.querySelector('.filter-btn.is-active').textContent.trim(),
+              y: window.scrollY,
+              odaiHidden: document.getElementById('odai-section').hidden,
+            })"""
+        )
+        if (
+            odai_filtered["sheets"] != ["ラジ父大喜利"]
+            or odai_filtered["eps"] != [f"{first_ep}回"]
+            or odai_filtered["active"] != "ラジ父大喜利"
+            or odai_filtered["y"] != 0
+        ):
+            fail(f"お題のタップで、想定どおりに絞り込まれていません: {odai_filtered}")
+        if not odai_filtered["odaiHidden"]:
+            fail("検索・絞り込み中なのに、お題一覧が表示されたままです。")
+        print(f"OK: お題のタップで「ラジ父大喜利」+「第{first_ep}回」に絞り込み")
+        page.click("#reset-all")
+        page.wait_for_timeout(400)
+        if page.get_attribute("#odai-section", "hidden") is not None:
+            fail("リセット後、お題一覧が表示に戻っていません。")
+
         # エラーバナーが出ていないか確認(出ていても致命的ではないが警告する)
         if page.is_visible("#error-banner"):
             print(f"WARN: エラーバナーが表示されています: {page.text_content('#error-banner')}")
