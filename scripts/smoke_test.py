@@ -289,6 +289,7 @@ def main():
         print("OK: 免責の文言(冒頭・フッター)")
 
         # 追加の絞り込み(サブフィルター): シートを選んだときだけ現れる
+        import collections
         import csv, io, urllib.parse, urllib.request
 
         sheet_id = "1-PnEwbdiTOfZ3XFLqarqBWe1WMYUfOqVkh3P3Uud-Bo"
@@ -386,6 +387,41 @@ def main():
         if got_yes != expect_yes or got_no != expect_no:
             fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
+
+        # その他 → 「テーマ」で絞り込み(選択肢はあらかじめ書かず、データから毎回拾い集める)
+        hdr, rows = fetch_rows("その他")
+        i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
+        themes = collections.Counter(
+            r[i_theme].strip() for r in rows if len(r) > i_theme and r[i_theme].strip() and (r[i_theme].strip() or r[i_mail].strip())
+        )
+        select_sheet("その他")
+        theme_buttons = page.query_selector_all('.filter-btn-sub[data-subfilter="theme"]')
+        # 「すべて」+ 実際に出現するテーマの種類数、のはず
+        if len(theme_buttons) != len(themes) + 1:
+            fail(f"「テーマ」の選択肢の数が、スプレッドシートの実際の値({len(themes)}種類)と合いません(ボタン{len(theme_buttons)}個)。")
+        # 最頻のテーマで絞り込み、件数が一致するか確認
+        top_theme, top_expect = themes.most_common(1)[0]
+        top_label = "-（件名不明）" if top_theme == "-" else top_theme
+        btn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{top_theme}"]')
+        if not btn or btn.text_content().strip() != top_label:
+            fail(f"テーマ「{top_theme}」のボタンが、想定の表示(「{top_label}」)と違います。")
+        btn.click()
+        page.wait_for_timeout(400)
+        got_top = sub_count()
+        if got_top != top_expect:
+            fail(f"テーマ「{top_theme}」の絞り込みの件数が違います: {got_top}(期待{top_expect})")
+        # 「-」は、ボタンの表示だけ「-（件名不明）」になり、一致判定は元の値のまま
+        if "-" in themes:
+            dash_btn = page.query_selector('.filter-btn-sub[data-subfilter="theme"][data-subvalue="-"]')
+            if not dash_btn or dash_btn.text_content().strip() != "-（件名不明）":
+                fail(f"テーマ「-」のボタンの表示が「-（件名不明）」になっていません: {dash_btn.text_content().strip() if dash_btn else None!r}")
+            dash_btn.click()
+            page.wait_for_timeout(400)
+            if sub_count() != themes["-"]:
+                fail(f"テーマ「-」の絞り込みの件数が違います: {sub_count()}(期待{themes['-']})")
+        print(f"OK: その他「テーマ」の絞り込み(選択肢{len(themes)}種類、最多「{top_label}」{top_expect}件)")
+        page.click('.filter-btn-sub[data-subfilter="theme"][data-subvalue=""]')  # すべてに戻す
+        page.wait_for_timeout(300)
 
         # シートを切り替えると、追加の絞り込みは消える(選択も解除される)
         select_sheet("パンダマン")

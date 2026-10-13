@@ -376,6 +376,9 @@
             } else if (val !== state.subFilter.value) {
               return false;
             }
+          } else if (sub.type === 'dynamic-value') {
+            // 選択肢をあらかじめ持たないため、列の値そのものと比べる
+            if (getColumnValue(r, sub.column) !== state.subFilter.value) return false;
           }
         }
       }
@@ -460,6 +463,25 @@
     return p ? p.value : '';
   }
 
+  // type: 'dynamic-value' の選択肢を、今読み込んでいるデータから毎回拾い集める(件数の多い順。同数は五十音順)。
+  // あらかじめ選択肢を書かないので、スプレッドシート側に新しい値が増えても、そのまま反映される。
+  function dynamicSubFilterOptions(sheetName, sub) {
+    const counts = new Map();
+    allRecords.forEach((r) => {
+      if (r.sheetName !== sheetName) return;
+      const val = getColumnValue(r, sub.column);
+      if (val === '') return;
+      counts.set(val, (counts.get(val) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+      .map(([value, count]) => ({
+        value,
+        count,
+        label: (sub.labelOverrides && sub.labelOverrides[value]) || value,
+      }));
+  }
+
   // 現在の activeSheet に定義されている、state.subFilter.key と一致する追加の絞り込みの定義
   function findActiveSubFilter() {
     if (state.subFilter === null) return null;
@@ -536,8 +558,9 @@
             `${escapeHtml(sub.label)}</button></div>`
           );
         }
-        // type: 'value' … 「すべて」+ options
-        const optionButtons = [{ value: '', label: 'すべて' }].concat(sub.options)
+        // type: 'value' … あらかじめ書かれた options / type: 'dynamic-value' … データから毎回拾い集めた選択肢
+        const options = sub.type === 'dynamic-value' ? dynamicSubFilterOptions(state.activeSheet, sub) : sub.options;
+        const optionButtons = [{ value: '', label: 'すべて' }].concat(options)
           .map((opt) => {
             const isAll = opt.value === '';
             const active =

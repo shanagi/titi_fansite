@@ -20,6 +20,11 @@
 //                      options: [{ value: 一致させる値, label: ボタンの表示名 }, ...,
 //                                { value: '__other__', label: '...', other: true } ] }
 //                    other: true の選択肢は、options に書かれた値のどれとも一致しない、空でない値をまとめて拾う。
+//   type: 'dynamic-value' … ある列に実際に入っている値を、読み込んだデータから毎回拾い集めてボタンにする
+//                    (「すべて」+ 値ごとのボタン。件数の多い順)。選択肢をあらかじめ書かなくてよいので、
+//                    スプレッドシート側に新しい値が増えても、コードを直さずそのまま反映される。
+//                    { key, type: 'dynamic-value', column: 列名, label: 絞り込みの見出し,
+//                      labelOverrides: { 元の値: 表示名, ... } }(任意。値そのものは変えず、表示名だけ変える)
 //
 // フィールドの breakAfter(任意・正規表現):
 //   一致した箇所の直後で改行する。スプレッドシート側の改行は空白として扱う(従来どおり)。
@@ -174,6 +179,16 @@ const CONFIG = {
     },
     {
       name: 'その他',
+      subFilters: [
+        {
+          key: 'theme',
+          type: 'dynamic-value',
+          column: 'テーマ',
+          label: 'テーマ',
+          // 「-」は、テーマが書かれていない(=件名不明)投稿につける記号。表示だけ分かりやすくする。
+          labelOverrides: { '-': '-（件名不明）' },
+        },
+      ],
       fields: [
         { column: 'テーマ', label: 'テーマ', mode: 'heading' },
         { column: 'メール', label: 'メール', mode: 'normal' },
