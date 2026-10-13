@@ -113,6 +113,7 @@
         mode: f.mode,
         combineGroup: f.combineGroup,
         breakAfter: f.breakAfter,
+        breakAt: f.breakAt,
         value: (row[f.column] || '').toString().trim(),
       }));
 
@@ -165,8 +166,17 @@
     return html;
   }
 
-  // 値をHTMLにする。breakAfter がある項目は、一致箇所の直後で改行する。
+  // 値をHTMLにする。breakAfter/breakAt がある項目は、一致箇所の直後/一致箇所そのもので改行する。
   function valueHtml(part, hl) {
+    if (part.breakAt) {
+      // 一致した文字そのものは表示に残さず、そこで区切って改行する(例: 本文中の「---」)
+      return part.value
+        .split(part.breakAt)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => hl(s))
+        .join('<br>');
+    }
     if (!part.breakAfter) return hl(part.value);
     const MARK = '\u0001';
     const text = part.value

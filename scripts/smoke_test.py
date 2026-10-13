@@ -425,6 +425,32 @@ def main():
             if sub_count() != themes["-"]:
                 fail(f"テーマ「-」の絞り込みの件数が違います: {sub_count()}(期待{themes['-']})")
         print(f"OK: その他「テーマ」の絞り込み(選択肢{len(themes)}種類、最多「{top_label}」{top_expect}件)")
+
+        # その他: 本文(メール)中の「---」は、文字が消えてそこで改行される。
+        # 「---」を含む投稿が実際にあるテーマを選んで絞り込んでから確認する(絞り込まないと該当投稿が画面に出ない場合がある)。
+        dash_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and "---" in r[i_mail]), None)
+        if dash_theme is not None:
+            dash_theme_key = "-" if dash_theme == "" else dash_theme
+            dbtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{dash_theme_key}"]')
+            if not dbtn:
+                fail(f"「---」を含む投稿のテーマ「{dash_theme_key}」のボタンが見つかりません。")
+            dbtn.click()
+            page.wait_for_timeout(400)
+            dash_check = page.evaluate(
+                """() => {
+                  const vals = [...document.querySelectorAll('.result-card .field-normal .field-value')];
+                  const hit = vals.find(v => v.innerHTML.includes('<br>'));
+                  return hit ? { html: hit.innerHTML, text: hit.textContent } : null;
+                }"""
+            )
+            if not dash_check:
+                fail("「---」を含む投稿があるのに、改行(<br>)になっているメール本文が見つかりません。")
+            if "---" in dash_check["text"]:
+                fail(f"「---」が改行に変わらず、文字として残っています: {dash_check['text'][:80]!r}")
+            print(f"OK: その他「メール」の「---」が改行になっている (テーマ「{dash_theme_key}」、例: {dash_check['text'][:40]}…)")
+        else:
+            print("WARN: 「---」を含む投稿が見つからず、改行の確認をスキップしました。")
+
         page.click('.filter-btn-sub[data-subfilter="theme"][data-subvalue=""]')  # すべてに戻す
         page.wait_for_timeout(300)
 
