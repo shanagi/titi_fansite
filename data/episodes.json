@@ -1,13 +1,18 @@
 {
-  "updated": "2026-10-25T00:39:11+09:00",
+  "updated": "2026-11-01T02:03:15+09:00",
   "latest": {
-    "no": 285,
-    "title": "◆285【本編】お笑い界の担い手",
-    "date": "2026-10-24",
-    "url": "https://podcasts.apple.com/jp/podcast/285-%E6%9C%AC%E7%B7%A8-%E3%81%8A%E7%AC%91%E3%81%84%E7%95%8C%E3%81%AE%E6%8B%85%E3%81%84%E6%89%8B/id1567028358?i=1000797911740&uo=4"
+    "no": 286,
+    "title": "◆286【本編】大人だなぁ",
+    "date": "2026-10-31",
+    "url": "https://podcasts.apple.com/jp/podcast/286-%E6%9C%AC%E7%B7%A8-%E5%A4%A7%E4%BA%BA%E3%81%A0%E3%81%AA%E3%81%81/id1567028358?i=1000799052239&uo=4"
   },
   "fetched_count": 200,
   "episodes": {
+    "286": {
+      "title": "◆286【本編】大人だなぁ",
+      "date": "2026-10-31",
+      "url": "https://podcasts.apple.com/jp/podcast/286-%E6%9C%AC%E7%B7%A8-%E5%A4%A7%E4%BA%BA%E3%81%A0%E3%81%AA%E3%81%81/id1567028358?i=1000799052239&uo=4"
+    },
     "285": {
       "title": "◆285【本編】お笑い界の担い手",
       "date": "2026-10-24",
