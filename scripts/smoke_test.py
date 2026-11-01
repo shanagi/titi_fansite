@@ -708,6 +708,8 @@ def main():
             fail("フッターに「データ提供：きゅうり大好きっ子ちゃん(@pomp364)様」がありません。")
         if "非公式" not in footer_text:
             fail("フッターに非公式ファンサイトの表記がありません。")
+        if "投稿内容やラジオネームはラジオを聴いて集計しています" not in footer_text:
+            fail("フッターに集計精度についての注記がありません。")
         if not footer_ps or "サイト作成：shanagi(@shanagi314)" not in footer_ps[-1]:
             fail("フッターの一番下に「サイト作成：shanagi(@shanagi314)」がありません。")
         if not page.query_selector('.site-footer a[href*="docs.google.com/spreadsheets"]'):
