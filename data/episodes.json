@@ -1,13 +1,18 @@
 {
-  "updated": "2026-11-01T02:03:15+09:00",
+  "updated": "2026-11-08T02:37:54+09:00",
   "latest": {
-    "no": 286,
-    "title": "◆286【本編】大人だなぁ",
-    "date": "2026-10-31",
-    "url": "https://podcasts.apple.com/jp/podcast/286-%E6%9C%AC%E7%B7%A8-%E5%A4%A7%E4%BA%BA%E3%81%A0%E3%81%AA%E3%81%81/id1567028358?i=1000799052239&uo=4"
+    "no": 287,
+    "title": "◆287【本編】学祭マニア・フルコンボ",
+    "date": "2026-11-07",
+    "url": "https://podcasts.apple.com/jp/podcast/287-%E6%9C%AC%E7%B7%A8-%E5%AD%A6%E7%A5%AD%E3%83%9E%E3%83%8B%E3%82%A2-%E3%83%95%E3%83%AB%E3%82%B3%E3%83%B3%E3%83%9C/id1567028358?i=1000800395496&uo=4"
   },
   "fetched_count": 200,
   "episodes": {
+    "287": {
+      "title": "◆287【本編】学祭マニア・フルコンボ",
+      "date": "2026-11-07",
+      "url": "https://podcasts.apple.com/jp/podcast/287-%E6%9C%AC%E7%B7%A8-%E5%AD%A6%E7%A5%AD%E3%83%9E%E3%83%8B%E3%82%A2-%E3%83%95%E3%83%AB%E3%82%B3%E3%83%B3%E3%83%9C/id1567028358?i=1000800395496&uo=4"
+    },
     "286": {
       "title": "◆286【本編】大人だなぁ",
       "date": "2026-10-31",
