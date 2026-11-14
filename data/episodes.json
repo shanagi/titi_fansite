@@ -1,13 +1,18 @@
 {
-  "updated": "2026-11-08T02:37:54+09:00",
+  "updated": "2026-11-15T02:48:42+09:00",
   "latest": {
-    "no": 287,
-    "title": "◆287【本編】学祭マニア・フルコンボ",
-    "date": "2026-11-07",
-    "url": "https://podcasts.apple.com/jp/podcast/287-%E6%9C%AC%E7%B7%A8-%E5%AD%A6%E7%A5%AD%E3%83%9E%E3%83%8B%E3%82%A2-%E3%83%95%E3%83%AB%E3%82%B3%E3%83%B3%E3%83%9C/id1567028358?i=1000800395496&uo=4"
+    "no": 288,
+    "title": "◆288【本編】ラフターナイトの地主",
+    "date": "2026-11-14",
+    "url": "https://podcasts.apple.com/jp/podcast/288-%E6%9C%AC%E7%B7%A8-%E3%83%A9%E3%83%95%E3%82%BF%E3%83%BC%E3%83%8A%E3%82%A4%E3%83%88%E3%81%AE%E5%9C%B0%E4%B8%BB/id1567028358?i=1000801896397&uo=4"
   },
   "fetched_count": 200,
   "episodes": {
+    "288": {
+      "title": "◆288【本編】ラフターナイトの地主",
+      "date": "2026-11-14",
+      "url": "https://podcasts.apple.com/jp/podcast/288-%E6%9C%AC%E7%B7%A8-%E3%83%A9%E3%83%95%E3%82%BF%E3%83%BC%E3%83%8A%E3%82%A4%E3%83%88%E3%81%AE%E5%9C%B0%E4%B8%BB/id1567028358?i=1000801896397&uo=4"
+    },
     "287": {
       "title": "◆287【本編】学祭マニア・フルコンボ",
       "date": "2026-11-07",
