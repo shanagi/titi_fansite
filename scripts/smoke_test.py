@@ -131,7 +131,14 @@ def main():
                     fail("表示順が「最新回のバナー → 未登録の旨の表示」になっていません。")
                 if page.get_attribute(".results-header", "hidden") is None:
                     fail("登録待ちの間、「最新回の投稿」の折り畳み表示(見出し)が隠れていません。")
-                print("OK: 表示順 (検索窓 → 最新回のバナー → 未登録の旨の表示。折り畳み表示は登録待ちのため非表示)")
+                # 未登録の旨の表示は、検索窓・バナーなど他のブロックと同じ幅・位置にそろえる
+                note_x = page.eval_on_selector("#latest-note", "e => { const r = e.getBoundingClientRect(); return [r.left, r.right]; }")
+                banner_x = page.eval_on_selector(
+                    "#latest-episode", "e => { const r = e.getBoundingClientRect(); return [r.left, r.right]; }"
+                )
+                if note_x != banner_x:
+                    fail(f"「未登録の旨の表示」の幅・位置が、最新回のバナーとそろっていません: {note_x}(期待 {banner_x})")
+                print("OK: 表示順 (検索窓 → 最新回のバナー → 未登録の旨の表示。折り畳み表示は登録待ちのため非表示。幅も他ブロックとそろう)")
             else:
                 y_header = page.eval_on_selector(".results-header", "e => e.getBoundingClientRect().top")
                 if not y_banner < y_header:
