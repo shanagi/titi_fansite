@@ -386,9 +386,7 @@
     section.hidden = isSearching() || pool.length === 0;
     if (section.hidden) return;
     if (state.randomPickRecord === null) {
-      body.innerHTML =
-        '<p class="random-pick-intro">リスナージングル以外のコーナーから、投稿をランダムに1つ表示します。' +
-        '右上の「⟳」ボタンを押してみてください。</p>';
+      body.innerHTML = '<p class="random-pick-intro">投稿をランダムに1つ表示します。右上の⟳ボタンで切り替えます。</p>';
       return;
     }
     body.innerHTML = '';
@@ -409,6 +407,10 @@
 
     const searching = isSearching();
     const latestNo = latestEpisodeNo();
+    // バナー(Apple Podcasts側)の最新回が、スプレッドシート側の最新回(投稿がある最新の整数回)より新しい間は、
+    // スプレッドシートへの登録が追いついていないということなので、折り畳み表示は出さず、未登録の旨だけを見せる。
+    const bannerNo = episodesData.latest && Number.isInteger(episodesData.latest.no) ? episodesData.latest.no : null;
+    const pendingRegistration = !searching && bannerNo !== null && latestNo !== null && bannerNo > latestNo;
     renderActiveFilters();
     renderSubFilters();
 
@@ -423,8 +425,8 @@
     visible.forEach((record) => frag.appendChild(renderCard(record, keywordTerms)));
     resultsList.appendChild(frag);
 
-    // トップ: 検索窓 → 最新回のバナー → 最新回の投稿(初期は折りたたみ)。検索を実施したときだけ検索結果を出す。
-    // 見出しの行は、トップでは「開閉ボタン」として働く(検索中は普通の見出し)。
+    // トップ: 最新回のバナー → (未登録なら)未登録の旨の表示 → 最新回の投稿(初期は折りたたみ) → ランダム表示。
+    // 検索を実施したときだけ検索結果を出す。見出しの行は、トップでは「開閉ボタン」として働く(検索中は普通の見出し)。
     const header = document.querySelector('.results-header');
     if (searching) {
       header.classList.remove('is-toggle');
@@ -439,8 +441,10 @@
       header.setAttribute('aria-expanded', String(state.topOpen));
       header.setAttribute('aria-controls', 'results-list');
     }
+    // バナーの最新回がスプレッドシートにまだ登録されていない間は、折り畳み表示(見出し・一覧・さらに表示)ごと隠す
+    header.hidden = pendingRegistration;
     const collapsed = !searching && !state.topOpen;
-    resultsList.hidden = collapsed;
+    resultsList.hidden = collapsed || pendingRegistration;
 
     banner.hidden = searching || !latestBannerReady;
     sortToggle.hidden = !searching;
@@ -458,18 +462,17 @@
           ? `第${latestNo}回の投稿は、まだスプレッドシートに登録されていません。`
           : '';
     }
-    emptyMessage.hidden = emptyMessage.textContent === '';
+    emptyMessage.hidden = emptyMessage.textContent === '' || pendingRegistration;
 
-    // バナーの最新回の投稿がまだ登録されていない場合は、その旨を伝える
-    const bannerNo = episodesData.latest && Number.isInteger(episodesData.latest.no) ? episodesData.latest.no : null;
-    if (!searching && bannerNo !== null && latestNo !== null && bannerNo > latestNo) {
+    // バナーの最新回の投稿がまだ登録されていない場合は、その旨を伝える(折り畳み表示の代わりにこちらを見せる)
+    if (pendingRegistration) {
       latestNote.textContent = `最新の第${bannerNo}回の投稿は、まだスプレッドシートに登録されていません。登録され次第、表示されます。`;
       latestNote.hidden = false;
     } else {
       latestNote.hidden = true;
     }
 
-    loadMore.hidden = collapsed || sorted.length <= state.visibleCount;
+    loadMore.hidden = collapsed || pendingRegistration || sorted.length <= state.visibleCount;
   }
 
   function getFiltered() {

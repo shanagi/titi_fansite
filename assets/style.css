@@ -104,6 +104,7 @@ input {
 .filter-panel,
 .latest-banner,
 main,
+.random-pick-section,
 .odai-section,
 .site-footer {
   width: min(calc(100% - var(--gutter) * 2), var(--max-width));
