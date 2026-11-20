@@ -284,28 +284,31 @@ def main():
         else:
             print("WARN: ラジオネームのチップが見つからず、ラジオネーム検索の確認をスキップしました。")
 
-        # シート別絞り込み
+        # コーナーで絞り込み(現行コーナー): 「すべて」+ 現行コーナー(その他は含まない)が、最初から表示されている
         # (ボタン一覧は絞り込み変更のたびに再描画されるため、都度クエリし直す)
-        sheet_buttons = page.query_selector_all(".filter-btn")
+        CORNER_FLAT_SELECTOR = "#corner-filter .corner-row-all .filter-btn, #corner-filter .corner-row-current .filter-btn"
+        sheet_buttons = page.query_selector_all(CORNER_FLAT_SELECTOR)
         expected_order = [
             "すべて", "ともはるさ～ん", "リスナージングル", "ラジ父大喜利", "ワーキャーのコーナー", "俺にもありました",
-            "優しいゴージャスさん", "パンダマン/デービーバックファイト", "みんなで！韻豆", "ガクにもわかりますか？", "エンディングのコーナー", "その他",
+            "優しいゴージャスさん", "パンダマン/デービーバックファイト", "みんなで！韻豆", "ガクにもわかりますか？", "エンディングのコーナー",
         ]
+        # 投稿の記載順(コーナー順)は、その他も含めた全シートの並び(config.jsのsheetsの並び)どおりになる
+        record_order = expected_order + ["その他"]
         actual_order = [b.text_content().strip() for b in sheet_buttons]
         if actual_order != expected_order:
-            fail(f"シート別ボタンの並びが仕様と違います:\n  実際: {actual_order}\n  仕様: {expected_order}")
-        print("OK: シート別ボタンの並び順")
+            fail(f"現行コーナーのボタンの並びが仕様と違います:\n  実際: {actual_order}\n  仕様: {expected_order}")
+        print("OK: 現行コーナーのボタンの並び順(「すべて」+ その他以外の全コーナー、最初から表示)")
         if len(sheet_buttons) > 1:
             sheet_buttons[1].click()
             page.wait_for_timeout(400)
             sheet_text = (page.text_content("#result-count") or "").strip()
             if "全" not in sheet_text:
-                fail(f"シート別絞り込みで検索結果が表示されていません: {sheet_text!r}")
-            print(f"OK: シート別絞り込み ({sheet_text})")
-            page.query_selector(".filter-btn").click()  # 「すべて」に戻す
+                fail(f"コーナーで絞り込みで検索結果が表示されていません: {sheet_text!r}")
+            print(f"OK: コーナーで絞り込み ({sheet_text})")
+            page.query_selector(CORNER_FLAT_SELECTOR).click()  # 「すべて」に戻す
             page.wait_for_timeout(300)
         else:
-            fail("シート別絞り込みボタンが見つかりません。")
+            fail("現行コーナーのボタンが見つかりません。")
 
         # 放送回範囲の絞り込み(直近の回番号を対象にする)
         page.fill("#episode-from", "270")
@@ -341,7 +344,7 @@ def main():
         page.fill("#episode-to", "279")
         page.wait_for_timeout(500)
         sheet_seq = page.eval_on_selector_all(".result-card .sheet-chip", "els => els.map(e => e.textContent.trim())")
-        order_idx = {n: i for i, n in enumerate(expected_order[1:])}
+        order_idx = {n: i for i, n in enumerate(record_order[1:])}
         idx = [order_idx[n] for n in sheet_seq]
         if idx != sorted(idx):
             fail(f"投稿の記載順が、絞り込みボタンのシートの並びと違います: {sheet_seq}")
@@ -373,7 +376,7 @@ def main():
             page.click("#filter-panel summary")
 
         # 「すべて」では、追加の絞り込みは出ない
-        page.click('.filter-btn[data-sheet="ALL"]')
+        page.click('.filter-btn[data-corner-all="1"]')
         page.wait_for_timeout(300)
         if page.is_visible("#sub-filter"):
             fail("「すべて」を選んでいるのに、追加の絞り込みが表示されています。")
@@ -456,53 +459,69 @@ def main():
             fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
 
-        # その他 → 「テーマ」で絞り込み(選択肢はあらかじめ書かず、データから毎回拾い集める)
-        # テーマが「-」の投稿と、テーマ自体が空欄の投稿(メールだけの投稿)は、同じ「-」にまとめる
+        # コーナーで絞り込み: 期間限定/終了済み/その他(「その他」シートのテーマ列が対象。選択肢は名前で決め打ち)
         hdr, rows = fetch_rows("その他")
         i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
-        themes = collections.Counter()
-        for r in rows:
-            theme = r[i_theme].strip() if len(r) > i_theme else ""
-            mail = r[i_mail].strip() if len(r) > i_mail else ""
-            if not theme and not mail:
-                continue  # 本文が丸ごと空の行は、サイトにも表示されない
-            themes["-" if theme == "" else theme] += 1
-        select_sheet("その他")
-        theme_buttons = page.query_selector_all('.filter-btn-sub[data-subfilter="theme"]')
-        # 「すべて」+ 実際に出現するテーマの種類数、のはず
-        if len(theme_buttons) != len(themes) + 1:
-            fail(f"「テーマ」の選択肢の数が、スプレッドシートの実際の値({len(themes)}種類)と合いません(ボタン{len(theme_buttons)}個)。")
-        # 最頻のテーマで絞り込み、件数が一致するか確認
-        top_theme, top_expect = themes.most_common(1)[0]
-        top_label = "-（件名不明）" if top_theme == "-" else top_theme
-        btn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{top_theme}"]')
-        if not btn or btn.text_content().strip() != top_label:
-            fail(f"テーマ「{top_theme}」のボタンが、想定の表示(「{top_label}」)と違います。")
-        btn.click()
-        page.wait_for_timeout(400)
-        got_top = sub_count()
-        if got_top != top_expect:
-            fail(f"テーマ「{top_theme}」の絞り込みの件数が違います: {got_top}(期待{top_expect})")
-        # 「-」(テーマが「-」の投稿+テーマ空欄の投稿をまとめたもの)は、「-（件名不明）」と表示される
-        if "-" in themes:
-            dash_btn = page.query_selector('.filter-btn-sub[data-subfilter="theme"][data-subvalue="-"]')
-            if not dash_btn or dash_btn.text_content().strip() != "-（件名不明）":
-                fail(f"テーマ「-」のボタンの表示が「-（件名不明）」になっていません: {dash_btn.text_content().strip() if dash_btn else None!r}")
-            dash_btn.click()
+        body_rows = [r for r in rows if len(r) > max(i_theme, i_mail) and (r[i_theme].strip() or r[i_mail].strip())]
+        themes_raw = [r[i_theme].strip() for r in body_rows]
+
+        named_corners = [
+            ("uso-matsu", "嘘松大捜査", lambda v: bool(re.match(r"^嘘松大捜査", v))),
+            ("kono-yo", "この世は壁だらけ", lambda v: v == "この世は壁だらけ"),
+            ("gaku-nasshu", "ガクナッシュ", lambda v: v == "ガクナッシュ"),
+            ("kokun-battle", "校訓バトル", lambda v: v == "校訓バトル"),
+            ("futsuota", "ふつおた革命", lambda v: v == "ふつおた革命"),
+            ("taketomi", "竹富島", lambda v: v == "竹富島"),
+            ("nichijou-rta", "日常RTA", lambda v: v == "日常RTA"),
+        ]
+        expect_corner = {key: sum(1 for v in themes_raw if match(v)) for key, _label, match in named_corners}
+        expect_other = sum(1 for v in themes_raw if not any(match(v) for _k, _l, match in named_corners))
+
+        # 絞り込みパネルを開いて、入れ子の「期間限定・終了済み・その他のコーナー」も開く
+        if not page.evaluate("document.getElementById('filter-panel').open"):
+            page.click("#filter-panel summary")
+        if not page.evaluate("document.querySelector('.corner-more').open"):
+            page.click(".corner-more summary")
+
+        # ボタンの並びが、期間限定5つ・終了済み2つ・その他1つ、の構成になっている
+        limited_labels = page.eval_on_selector_all(
+            ".corner-more .corner-subgroup:nth-of-type(1) .filter-btn", "els => els.map(e => e.textContent.trim())"
+        )
+        ended_labels = page.eval_on_selector_all(
+            ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
+        )
+        other_labels = page.eval_on_selector_all(
+            ".corner-more .corner-subgroup:nth-of-type(3) .filter-btn", "els => els.map(e => e.textContent.trim())"
+        )
+        if limited_labels != ["嘘松大捜査", "この世は壁だらけ", "ガクナッシュ", "校訓バトル", "ふつおた革命"]:
+            fail(f"「期間限定」のコーナーの並び・表示が違います: {limited_labels}")
+        if ended_labels != ["竹富島", "日常RTA"]:
+            fail(f"「終了済み」のコーナーの並び・表示が違います: {ended_labels}")
+        if other_labels != ["その他"]:
+            fail(f"「その他」のコーナーの表示が違います: {other_labels}")
+        print("OK: 「期間限定・終了済み・その他のコーナー」の並び・表示")
+
+        # 各コーナーの件数が、スプレッドシートから数えた値と一致する(「嘘松大捜査」は年が変わっても前方一致で拾う)
+        for key, label, _match in named_corners:
+            page.click(f'.filter-btn[data-corner-key="{key}"]')
             page.wait_for_timeout(400)
-            if sub_count() != themes["-"]:
-                fail(f"テーマ「-」の絞り込みの件数が違います: {sub_count()}(期待{themes['-']})")
-        print(f"OK: その他「テーマ」の絞り込み(選択肢{len(themes)}種類、最多「{top_label}」{top_expect}件)")
+            got = sub_count()
+            if got != expect_corner[key]:
+                fail(f"「{label}」の絞り込みの件数が違います: {got}(期待{expect_corner[key]})")
+        print(f"OK: 期間限定/終了済みコーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
+
+        # 「その他」(期間限定/終了済みのどれにも当てはまらない投稿をまとめたもの)
+        page.click('.filter-btn[data-corner-key="__other__"]')
+        page.wait_for_timeout(400)
+        got_other = sub_count()
+        if got_other != expect_other:
+            fail(f"「その他」コーナーの件数が違います: {got_other}(期待{expect_other})")
+        print(f"OK: 「その他」コーナーの絞り込み ({got_other}件)")
 
         # その他: 本文(メール)中の「---」は、文字が消えてそこで改行される。
-        # 「---」を含む投稿が実際にあるテーマを選んで絞り込んでから確認する(絞り込まないと該当投稿が画面に出ない場合がある)。
-        dash_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and "---" in r[i_mail]), None)
-        if dash_theme is not None:
-            dash_theme_key = "-" if dash_theme == "" else dash_theme
-            dbtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{dash_theme_key}"]')
-            if not dbtn:
-                fail(f"「---」を含む投稿のテーマ「{dash_theme_key}」のボタンが見つかりません。")
-            dbtn.click()
+        # 「---」を含む投稿が実際にあるテーマ(ガクナッシュ)を選んで絞り込んでから確認する。
+        if any("---" in r[i_mail] for r in body_rows if len(r) > i_mail):
+            page.click('.filter-btn[data-corner-key="gaku-nasshu"]')
             page.wait_for_timeout(400)
             dash_check = page.evaluate(
                 """() => {
@@ -515,18 +534,13 @@ def main():
                 fail("「---」を含む投稿があるのに、改行(<br>)になっているメール本文が見つかりません。")
             if "---" in dash_check["text"]:
                 fail(f"「---」が改行に変わらず、文字として残っています: {dash_check['text'][:80]!r}")
-            print(f"OK: その他「メール」の「---」が改行になっている (テーマ「{dash_theme_key}」、例: {dash_check['text'][:40]}…)")
+            print(f"OK: その他「メール」の「---」が改行になっている (例: {dash_check['text'][:40]}…)")
         else:
             print("WARN: 「---」を含む投稿が見つからず、改行の確認をスキップしました。")
 
         # その他: 本文の最後がURLの投稿は、「この投稿をみる」のリンクになる(URLの文字は表示に出ない)
-        url_theme = next((r[i_theme].strip() for r in rows if len(r) > i_mail and re.search(r"https?://\S+\s*$", r[i_mail])), None)
-        if url_theme is not None:
-            url_theme_key = "-" if url_theme == "" else url_theme
-            ubtn = page.query_selector(f'.filter-btn-sub[data-subfilter="theme"][data-subvalue="{url_theme_key}"]')
-            if not ubtn:
-                fail(f"文末にURLがある投稿のテーマ「{url_theme_key}」のボタンが見つかりません。")
-            ubtn.click()
+        if any(re.search(r"https?://\S+\s*$", r[i_mail]) for r in body_rows if len(r) > i_mail):
+            page.click('.filter-btn[data-corner-key="uso-matsu"]')
             page.wait_for_timeout(400)
             url_check = page.evaluate(
                 """() => {
@@ -542,18 +556,18 @@ def main():
                 fail(f"「この投稿をみる」リンクの表示・リンク先が仕様と違います: {url_check}")
             if "http://" in url_check["bodyText"] or "https://" in url_check["bodyText"]:
                 fail(f"URLの文字がそのまま本文に残っています: {url_check['bodyText'][-80:]!r}")
-            print(f"OK: その他「メール」の文末URLが「この投稿をみる」のリンクになっている (テーマ「{url_theme_key}」、{url_check['href']})")
+            print(f"OK: その他「メール」の文末URLが「この投稿をみる」のリンクになっている ({url_check['href']})")
         else:
             print("WARN: 文末にURLがある投稿が見つからず、リンク化の確認をスキップしました。")
 
-        page.click('.filter-btn-sub[data-subfilter="theme"][data-subvalue=""]')  # すべてに戻す
+        page.click('.filter-btn[data-corner-all="1"]')  # すべてに戻す
         page.wait_for_timeout(300)
 
         # シートを切り替えると、追加の絞り込みは消える(選択も解除される)
         select_sheet("パンダマン")
         if page.is_visible("#sub-filter"):
             fail("追加の絞り込みのない「パンダマン」で、追加の絞り込みが表示されています。")
-        page.click('.filter-btn[data-sheet="ALL"]')
+        page.click('.filter-btn[data-corner-all="1"]')
         page.wait_for_timeout(300)
 
         # 表記: ページ内(投稿の本文を除く)の「ポッドキャスト」「podcast」は、「Podcast」にそろえる
@@ -646,7 +660,7 @@ def main():
         page.fill("#keyword-input", "ネタ")
         page.fill("#radioname-input", "あ")
         page.fill("#episode-from", "270")
-        page.query_selector_all(".filter-btn")[2].click()  # 「すべて」以外のシートを選ぶ
+        page.query_selector_all(CORNER_FLAT_SELECTOR)[2].click()  # 「すべて」以外のコーナーを選ぶ
         page.click("#sort-toggle")
         page.wait_for_timeout(500)
         if not page.is_visible("#reset-all"):
@@ -669,12 +683,12 @@ def main():
         # タイトルをタップすると最初の画面に戻る
         page.click("#filter-panel summary") if not page.evaluate("document.getElementById('filter-panel').open") else None
         page.fill("#keyword-input", "川北")
-        page.query_selector_all(".filter-btn")[3].click()
+        page.query_selector_all(CORNER_FLAT_SELECTOR)[3].click()
         page.wait_for_timeout(400)
         page.fill("#keyword-input", "")
         page.wait_for_timeout(400)
         page.click(".results-header")  # トップの最新回の投稿を開いておく(タイトルのタップで閉じに戻ることを確認する)
-        page.query_selector_all(".filter-btn")[3].click()
+        page.query_selector_all(CORNER_FLAT_SELECTOR)[3].click()
         page.wait_for_timeout(300)
         page.evaluate("window.scrollTo(0, 600)")
         page.click("#site-title-link")
