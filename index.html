@@ -73,13 +73,15 @@
 
 <aside id="latest-episode" class="latest-banner" aria-label="最新回" hidden></aside>
 
+<!-- バナーの最新回がスプレッドシートにまだ登録されていないときだけ表示。その間は、下の折り畳み表示ごと隠す -->
+<p id="latest-note" class="latest-note" hidden></p>
+
 <main>
   <div class="results-header">
     <span id="result-count" aria-live="polite">読み込み中…</span>
     <button id="sort-toggle" type="button" hidden>並び替え: コーナー順</button>
   </div>
   <div id="error-banner" class="error-banner" hidden></div>
-  <p id="latest-note" class="latest-note" hidden></p>
   <p id="empty-message" class="empty-message" hidden></p>
   <ul id="results-list" class="results-list"></ul>
   <button id="load-more" type="button" hidden>さらに表示</button>

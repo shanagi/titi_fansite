@@ -110,7 +110,13 @@ def main():
         else:
             print(f"WARN: Webフォントが読み込めていません(オフライン環境では標準フォントで表示されます): {fonts_ok}")
 
-        # 表示順: 検索窓 → 最新回のバナー → 最新回の投稿
+        # バナー(Apple Podcasts側)の最新回が、スプレッドシート側の最新回より新しい間(登録待ち)は、
+        # 「最新回の折り畳み表示」ごと隠し、代わりに未登録の旨を示す表示を出す仕様。現在の実データで判定する。
+        pending_registration = page.get_attribute("#latest-note", "hidden") is None
+        if pending_registration:
+            print(f"情報: 現在は登録待ちの状態です({(page.text_content('#latest-note') or '').strip()})")
+
+        # 表示順: 最新回のバナー → (登録待ちなら)未登録の旨の表示 → 最新回の投稿の折り畳み表示
         banner_visible = page.is_visible("#latest-episode")
         if banner_visible:
             if not page.query_selector("#latest-episode a.latest-btn"):
@@ -119,59 +125,70 @@ def main():
             y_banner = page.eval_on_selector("#latest-episode", "e => e.getBoundingClientRect().top")
             if not y_search < y_banner:
                 fail("表示順が「検索窓 → 最新回のバナー」になっていません。")
-            y_header = page.eval_on_selector(".results-header", "e => e.getBoundingClientRect().top")
-            if not y_banner < y_header:
-                fail("表示順が「最新回のバナー → 最新回の投稿」になっていません。")
-            print("OK: 表示順 (検索窓 → 最新回のバナー → 最新回の投稿)")
+            if pending_registration:
+                y_note = page.eval_on_selector("#latest-note", "e => e.getBoundingClientRect().top")
+                if not y_banner < y_note:
+                    fail("表示順が「最新回のバナー → 未登録の旨の表示」になっていません。")
+                if page.get_attribute(".results-header", "hidden") is None:
+                    fail("登録待ちの間、「最新回の投稿」の折り畳み表示(見出し)が隠れていません。")
+                print("OK: 表示順 (検索窓 → 最新回のバナー → 未登録の旨の表示。折り畳み表示は登録待ちのため非表示)")
+            else:
+                y_header = page.eval_on_selector(".results-header", "e => e.getBoundingClientRect().top")
+                if not y_banner < y_header:
+                    fail("表示順が「最新回のバナー → 最新回の投稿」になっていません。")
+                print("OK: 表示順 (検索窓 → 最新回のバナー → 最新回の投稿)")
         else:
             print("WARN: 最新回バナーが表示されていません(episodes.jsonのlatestが空の場合は正常)。")
 
-        # 検索していないときは、最新回の投稿だけが出る
-        if "回の投稿" not in top_text:
-            fail(f"トップに最新回の投稿の表示がありません: {top_text!r}")
-        episode_labels = set(
-            page.eval_on_selector_all(".result-card .badge-episode", "els => els.map(e => e.textContent.trim())")
-        )
-        if len(episode_labels) > 1:
-            fail(f"トップに複数の回の投稿が出ています(検索結果が出ている): {episode_labels}")
-        if page.is_visible("#sort-toggle"):
-            fail("検索していないのに、並び替えボタンが表示されています。")
-        print(f"OK: トップは最新回の投稿のみ ({', '.join(episode_labels) or '投稿なし'})")
-
-        # 最新回の投稿は、初期表示では折りたたまれていて、見出しの行をタップすると開閉する
-        def top_state():
-            return page.evaluate(
-                """() => ({
-                  expanded: document.querySelector('.results-header').getAttribute('aria-expanded'),
-                  listVisible: !document.getElementById('results-list').hidden,
-                  cardVisible: !!document.querySelector('.result-card') && document.querySelector('.result-card').offsetParent !== null,
-                })"""
+        if pending_registration:
+            print("情報: 登録待ちのため、「最新回の投稿のみ表示」「折り畳みの開閉」の確認はスキップします。")
+        else:
+            # 検索していないときは、最新回の投稿だけが出る
+            if "回の投稿" not in top_text:
+                fail(f"トップに最新回の投稿の表示がありません: {top_text!r}")
+            episode_labels = set(
+                page.eval_on_selector_all(".result-card .badge-episode", "els => els.map(e => e.textContent.trim())")
             )
+            if len(episode_labels) > 1:
+                fail(f"トップに複数の回の投稿が出ています(検索結果が出ている): {episode_labels}")
+            if page.is_visible("#sort-toggle"):
+                fail("検索していないのに、並び替えボタンが表示されています。")
+            print(f"OK: トップは最新回の投稿のみ ({', '.join(episode_labels) or '投稿なし'})")
 
-        s0 = top_state()
-        if s0["expanded"] != "false" or s0["listVisible"] or s0["cardVisible"]:
-            fail(f"トップの最新回の投稿が、初期表示で折りたたまれていません: {s0}")
-        page.click(".results-header")
-        page.wait_for_timeout(200)
-        s1 = top_state()
-        if s1["expanded"] != "true" or not s1["listVisible"] or not s1["cardVisible"]:
-            fail(f"見出しの行をタップしても、最新回の投稿が開きません: {s1}")
-        page.click(".results-header")
-        page.wait_for_timeout(200)
-        s2 = top_state()
-        if s2["expanded"] != "false" or s2["listVisible"]:
-            fail(f"もう一度タップしても、最新回の投稿が閉じません: {s2}")
-        # キーボード(Enter)でも開閉できる
-        page.focus(".results-header")
-        page.keyboard.press("Enter")
-        page.wait_for_timeout(200)
-        if not top_state()["listVisible"]:
-            fail("Enterキーで、最新回の投稿を開けません。")
-        page.keyboard.press("Space")
-        page.wait_for_timeout(200)
-        if top_state()["listVisible"]:
-            fail("Spaceキーで、最新回の投稿を閉じられません。")
-        print("OK: 最新回の投稿は折りたたみ(初期は閉じ、タップ・Enter・Spaceで開閉)")
+            # 最新回の投稿は、初期表示では折りたたまれていて、見出しの行をタップすると開閉する
+            def top_state():
+                return page.evaluate(
+                    """() => ({
+                      expanded: document.querySelector('.results-header').getAttribute('aria-expanded'),
+                      listVisible: !document.getElementById('results-list').hidden,
+                      cardVisible: !!document.querySelector('.result-card') && document.querySelector('.result-card').offsetParent !== null,
+                    })"""
+                )
+
+            s0 = top_state()
+            if s0["expanded"] != "false" or s0["listVisible"] or s0["cardVisible"]:
+                fail(f"トップの最新回の投稿が、初期表示で折りたたまれていません: {s0}")
+            page.click(".results-header")
+            page.wait_for_timeout(200)
+            s1 = top_state()
+            if s1["expanded"] != "true" or not s1["listVisible"] or not s1["cardVisible"]:
+                fail(f"見出しの行をタップしても、最新回の投稿が開きません: {s1}")
+            page.click(".results-header")
+            page.wait_for_timeout(200)
+            s2 = top_state()
+            if s2["expanded"] != "false" or s2["listVisible"]:
+                fail(f"もう一度タップしても、最新回の投稿が閉じません: {s2}")
+            # キーボード(Enter)でも開閉できる
+            page.focus(".results-header")
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(200)
+            if not top_state()["listVisible"]:
+                fail("Enterキーで、最新回の投稿を開けません。")
+            page.keyboard.press("Space")
+            page.wait_for_timeout(200)
+            if top_state()["listVisible"]:
+                fail("Spaceキーで、最新回の投稿を閉じられません。")
+            print("OK: 最新回の投稿は折りたたみ(初期は閉じ、タップ・Enter・Spaceで開閉)")
 
         # ラジ父大喜利 お題一覧(トップページにだけ表示。放送回ごとに1件、降順)
         import collections as _collections
