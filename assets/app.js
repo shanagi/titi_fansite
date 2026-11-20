@@ -13,6 +13,7 @@
     activeSheet: 'ALL',
     subFilter: null, // { key, value } … 現在の activeSheet の追加の絞り込み(シートを切り替えると null に戻る)
     cornerKey: null, // CONFIG.cornerGroups の key、または '__other__'。activeSheet が cornerGroups.sheetName のときだけ意味を持つ
+    otherThemeValue: null, // cornerKey が '__other__' のとき、さらにテーマの値で絞り込む(null = その他全て)
     epFrom: null,
     epTo: null,
     sortMode: 'original', // 'original' | 'asc' | 'desc'
@@ -463,6 +464,11 @@
         const options = allCornerOptions();
         if (state.cornerKey === '__other__') {
           if (options.some((opt) => cornerOptionMatches(r, opt))) return false;
+          // さらに、その他の中の特定のテーマで絞り込む(空欄は「-」として扱う)
+          if (state.otherThemeValue !== null) {
+            const raw = getColumnValue(r, cg.column);
+            if ((raw === '' ? '-' : raw) !== state.otherThemeValue) return false;
+          }
         } else {
           const opt = options.find((o) => o.key === state.cornerKey);
           if (opt && !cornerOptionMatches(r, opt)) return false;
@@ -582,6 +588,25 @@
     return (cg.limited || []).concat(cg.ended || []);
   }
 
+  // 「その他」(期間限定/終了済みのどれにも当てはまらない投稿)の中の、実際のテーマの値ごとの一覧。
+  // 「ガクナッシュ」などと違って名前を決め打ちできないので、読み込んだデータから毎回拾い集める(件数の多い順。同数は五十音順)。
+  // テーマが空欄の投稿は「-」として、テーマが「-」の投稿と同じ扱いにする。
+  function dynamicOtherThemeOptions() {
+    const cg = CONFIG.cornerGroups;
+    const options = allCornerOptions();
+    const counts = new Map();
+    allRecords.forEach((r) => {
+      if (r.sheetName !== cg.sheetName) return;
+      if (options.some((opt) => cornerOptionMatches(r, opt))) return; // 期間限定/終了済みに該当する投稿は除く
+      const raw = getColumnValue(r, cg.column);
+      const value = raw === '' ? '-' : raw;
+      counts.set(value, (counts.get(value) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+      .map(([value, count]) => ({ value, count, label: value === '-' ? '-（件名不明）' : value }));
+  }
+
   // 投稿の対象列の値が、コーナー定義(opt)に一致するか。match(正規表現)があればそれで、なければ label と完全一致で判定する。
   function cornerOptionMatches(record, opt) {
     const val = getColumnValue(record, CONFIG.cornerGroups.column);
@@ -620,8 +645,17 @@
         const active = inOtherGroup && state.cornerKey === opt.key ? ' is-active' : '';
         return `<button type="button" class="filter-btn${active}" data-corner-key="${escapeHtml(opt.key)}">${escapeHtml(opt.label)}</button>`;
       };
-      const otherActive = inOtherGroup && state.cornerKey === '__other__' ? ' is-active' : '';
-      const otherHtml = `<button type="button" class="filter-btn${otherActive}" data-corner-key="__other__">${escapeHtml(cg.otherLabel || 'その他')}</button>`;
+      const inOther = inOtherGroup && state.cornerKey === '__other__';
+      const otherAllActive = inOther && state.otherThemeValue === null ? ' is-active' : '';
+      const otherAllHtml = `<button type="button" class="filter-btn${otherAllActive}" data-corner-key="__other__">${escapeHtml(cg.otherLabel || 'その他')}全て</button>`;
+      const otherThemeBtn = (opt) => {
+        const active = inOther && state.otherThemeValue === opt.value ? ' is-active' : '';
+        return (
+          `<button type="button" class="filter-btn${active}" data-corner-key="__other__" data-other-theme="${escapeHtml(opt.value)}">` +
+          `${escapeHtml(opt.label)}</button>`
+        );
+      };
+      const otherThemeOptions = dynamicOtherThemeOptions();
 
       moreHtml = `
         <details class="corner-more"${inOtherGroup ? ' open' : ''}>
@@ -635,7 +669,8 @@
             <div class="corner-row">${(cg.ended || []).map(cornerBtn).join('')}</div>
           </div>
           <div class="corner-subgroup">
-            <div class="corner-row">${otherHtml}</div>
+            <span class="corner-subgroup-label">その他</span>
+            <div class="corner-row">${otherAllHtml}${otherThemeOptions.map(otherThemeBtn).join('')}</div>
           </div>
         </details>
       `;
@@ -739,6 +774,7 @@
     state.activeSheet = 'ALL';
     state.subFilter = null;
     state.cornerKey = null;
+    state.otherThemeValue = null;
     state.epFrom = null;
     state.epTo = null;
     state.sortMode = 'original';
@@ -762,6 +798,7 @@
     state.activeSheet = cfg.sheetName;
     state.subFilter = null;
     state.cornerKey = null;
+    state.otherThemeValue = null;
     state.epFrom = epNumeric;
     state.epTo = epNumeric;
     resetPaging();
@@ -826,6 +863,7 @@
     cornerFilter.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
+      state.otherThemeValue = null;
       if (btn.dataset.cornerAll) {
         state.activeSheet = 'ALL';
         state.cornerKey = null;
@@ -835,6 +873,7 @@
       } else if (btn.dataset.cornerKey) {
         state.activeSheet = CONFIG.cornerGroups.sheetName;
         state.cornerKey = btn.dataset.cornerKey;
+        if (btn.dataset.otherTheme !== undefined) state.otherThemeValue = btn.dataset.otherTheme;
       } else {
         return;
       }
@@ -962,6 +1001,7 @@
       renderLatestEpisode();
       odaiListData = buildOdaiList();
       renderOdaiList();
+      renderCornerFilter(); // 「その他」の中の個別テーマ一覧は、データが揃ってから出せるので、ここで作り直す
       render();
     });
   }

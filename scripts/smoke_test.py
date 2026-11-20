@@ -490,6 +490,7 @@ def main():
         ended_labels = page.eval_on_selector_all(
             ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
+        other_subgroup_label = page.text_content(".corner-more .corner-subgroup:nth-of-type(3) .corner-subgroup-label")
         other_labels = page.eval_on_selector_all(
             ".corner-more .corner-subgroup:nth-of-type(3) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
@@ -497,9 +498,35 @@ def main():
             fail(f"「期間限定」のコーナーの並び・表示が違います: {limited_labels}")
         if ended_labels != ["竹富島", "日常RTA"]:
             fail(f"「終了済み」のコーナーの並び・表示が違います: {ended_labels}")
-        if other_labels != ["その他"]:
-            fail(f"「その他」のコーナーの表示が違います: {other_labels}")
-        print("OK: 「期間限定・終了済み・その他のコーナー」の並び・表示")
+        if (other_subgroup_label or "").strip() != "その他":
+            fail(f"「その他」の見出し(期間限定/終了済みと同じ灰色の小見出し)がありません: {other_subgroup_label!r}")
+        if not other_labels or other_labels[0] != "その他全て":
+            fail(f"「その他全て」ボタンが先頭にありません: {other_labels}")
+        print("OK: 「期間限定・終了済み・その他のコーナー」の並び・表示(「その他」にも見出しが付いている)")
+
+        # 「その他」の中は、個別のテーマでも選べる(選択肢はあらかじめ書かず、データから毎回拾い集める)
+        other_theme_counts = collections.Counter(
+            "-" if v == "" else v for v in themes_raw if not any(match(v) for _k, _l, match in named_corners)
+        )
+        other_theme_buttons = page.query_selector_all(
+            '.corner-more .corner-subgroup:nth-of-type(3) .filter-btn[data-other-theme]'
+        )
+        if len(other_theme_buttons) != len(other_theme_counts):
+            fail(
+                f"「その他」内の個別テーマの選択肢の数が、スプレッドシートの実際の値({len(other_theme_counts)}種類)と合いません"
+                f"(ボタン{len(other_theme_buttons)}個)。"
+            )
+        top_other_theme, top_other_expect = other_theme_counts.most_common(1)[0]
+        top_other_label = "-（件名不明）" if top_other_theme == "-" else top_other_theme
+        top_other_btn = page.query_selector(f'.filter-btn[data-corner-key="__other__"][data-other-theme="{top_other_theme}"]')
+        if not top_other_btn or top_other_btn.text_content().strip() != top_other_label:
+            fail(f"「その他」内のテーマ「{top_other_theme}」のボタンが、想定の表示(「{top_other_label}」)と違います。")
+        top_other_btn.click()
+        page.wait_for_timeout(400)
+        got_top_other = sub_count()
+        if got_top_other != top_other_expect:
+            fail(f"「その他」内のテーマ「{top_other_theme}」の絞り込みの件数が違います: {got_top_other}(期待{top_other_expect})")
+        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件)")
 
         # 各コーナーの件数が、スプレッドシートから数えた値と一致する(「嘘松大捜査」は年が変わっても前方一致で拾う)
         for key, label, _match in named_corners:
@@ -510,13 +537,13 @@ def main():
                 fail(f"「{label}」の絞り込みの件数が違います: {got}(期待{expect_corner[key]})")
         print(f"OK: 期間限定/終了済みコーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
 
-        # 「その他」(期間限定/終了済みのどれにも当てはまらない投稿をまとめたもの)
-        page.click('.filter-btn[data-corner-key="__other__"]')
+        # 「その他全て」(期間限定/終了済みのどれにも当てはまらない投稿をまとめたもの)
+        page.click('.filter-btn[data-corner-key="__other__"]:not([data-other-theme])')
         page.wait_for_timeout(400)
         got_other = sub_count()
         if got_other != expect_other:
-            fail(f"「その他」コーナーの件数が違います: {got_other}(期待{expect_other})")
-        print(f"OK: 「その他」コーナーの絞り込み ({got_other}件)")
+            fail(f"「その他全て」の件数が違います: {got_other}(期待{expect_other})")
+        print(f"OK: 「その他全て」の絞り込み ({got_other}件)")
 
         # その他: 本文(メール)中の「---」は、文字が消えてそこで改行される。
         # 「---」を含む投稿が実際にあるテーマ(ガクナッシュ)を選んで絞り込んでから確認する。
