@@ -214,6 +214,46 @@ def main():
             fail(f"先頭のお題の文言が違います: 表示={first_text_shown!r} / 期待の一部={_by_ep[first_ep]!r}")
         print(f"OK: ラジ父大喜利 お題一覧(放送回降順、全{len(odai_eps)}件、先頭は第{first_ep}回)")
 
+        # ランダム表示(トップページ、最新回の投稿とお題一覧のあいだ): 初期状態は説明文、リロードで投稿が出る
+        if not page.is_visible("#random-pick-section"):
+            fail("ランダム表示のセクションがトップページに表示されていません。")
+        intro_text = (page.text_content("#random-pick-body") or "").strip()
+        if "ランダム" not in intro_text or page.query_selector("#random-pick-body .result-card"):
+            fail(f"ランダム表示の初期状態が、説明文になっていません: {intro_text!r}")
+        seen_sheets = set()
+        for _ in range(25):
+            page.click("#random-pick-reload")
+            page.wait_for_timeout(60)
+            card_text = (page.text_content("#random-pick-body") or "")
+            if "【】" in card_text:
+                fail("ランダム表示に、空のテンプレート文字列(「【】」)の投稿が出ました。")
+            sheet = (page.text_content("#random-pick-body .sheet-chip") or "").strip()
+            if sheet:
+                seen_sheets.add(sheet)
+        if "リスナージングル" in seen_sheets or "その他" in seen_sheets:
+            fail(f"ランダム表示に、対象外のはずのコーナーが出ました: {seen_sheets}")
+        print(f"OK: ランダム表示(初期は説明文、リロードで投稿表示。25回で出たコーナー: {sorted(seen_sheets)})")
+
+        # ランダム表示のカード内の放送回タップでも、通常の検索結果と同様に絞り込みが効く
+        ep_btn = page.query_selector("#random-pick-body .badge-episode[data-episode]")
+        if ep_btn:
+            ep_val = ep_btn.text_content().strip()
+            ep_btn.click()
+            page.wait_for_timeout(400)
+            if page.get_attribute("#random-pick-section", "hidden") is None:
+                fail("ランダム表示のカードから絞り込んでも、ランダム表示セクションが隠れません(検索中は隠す仕様)。")
+            result_eps = set(
+                page.eval_on_selector_all("#results-list .result-card .badge-episode", "els => els.map(e => e.textContent.trim())")
+            )
+            if result_eps != {ep_val}:
+                fail(f"ランダム表示の放送回タップによる絞り込みが効いていません: {result_eps}(期待: {{{ep_val!r}}})")
+            page.click("#reset-all")
+            page.wait_for_timeout(300)
+            # リセットは「最初の画面に戻る」ため、ランダム表示も説明文の初期状態に戻る
+            if page.query_selector("#random-pick-body .result-card"):
+                fail("リセットしても、ランダム表示が選択済みの投稿のままで、説明文に戻っていません。")
+            print(f"OK: ランダム表示カード内の放送回タップで絞り込み ({ep_val})、リセットで説明文に戻る")
+
         # お題をタップすると、ラジ父大喜利 + その回だけに絞り込まれる
         page.click(".odai-item")
         page.wait_for_timeout(400)
@@ -315,14 +355,23 @@ def main():
             fail(f"現行コーナーのボタンの並びが仕様と違います:\n  実際: {actual_order}\n  仕様: {expected_order}")
         print("OK: 現行コーナーのボタンの並び順(「すべて」+ その他以外の全コーナー、最初から表示)")
         if len(sheet_buttons) > 1:
+            sheet_label = sheet_buttons[1].text_content().strip()
             sheet_buttons[1].click()
             page.wait_for_timeout(400)
             sheet_text = (page.text_content("#result-count") or "").strip()
             if "全" not in sheet_text:
                 fail(f"コーナーで絞り込みで検索結果が表示されていません: {sheet_text!r}")
             print(f"OK: コーナーで絞り込み ({sheet_text})")
-            page.query_selector(CORNER_FLAT_SELECTOR).click()  # 「すべて」に戻す
+
+            # コーナーで絞り込んだときも、放送回・ラジオネームと同様に、検索窓の下にチップ+解除ボタンが出る
+            chip_text = (page.text_content("#active-filters") or "").strip()
+            if f"コーナー：{sheet_label}" not in chip_text:
+                fail(f"コーナーで絞り込み中のチップが表示されていません: {chip_text!r}(期待するコーナー名: {sheet_label!r})")
+            page.click('#active-filters .active-chip-clear[data-clear="corner"]')
             page.wait_for_timeout(300)
+            if not page.query_selector(CORNER_FLAT_SELECTOR).evaluate("e => e.classList.contains('is-active')"):
+                fail("コーナーのチップの「解除」を押しても、「すべて」に戻っていません。")
+            print(f"OK: コーナーで絞り込み中のチップ表示・解除 ({sheet_label})")
         else:
             fail("現行コーナーのボタンが見つかりません。")
 
@@ -543,7 +592,11 @@ def main():
         got_top_other = sub_count()
         if got_top_other != top_other_expect:
             fail(f"「その他」内のテーマ「{top_other_theme}」の絞り込みの件数が違います: {got_top_other}(期待{top_other_expect})")
-        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件)")
+        # 「その他」内の個別テーマを選んだときも、検索窓の下にそのテーマ名のチップが出る
+        other_chip_text = (page.text_content("#active-filters") or "").strip()
+        if f"コーナー：{top_other_label}" not in other_chip_text:
+            fail(f"「その他」内の個別テーマ選択時のチップが違います: {other_chip_text!r}(期待するテーマ名: {top_other_label!r})")
+        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件、チップ表示あり)")
 
         # 各コーナーの件数が、スプレッドシートから数えた値と一致する(「嘘松大捜査」は年が変わっても前方一致で拾う)
         for key, label, _match in named_corners:

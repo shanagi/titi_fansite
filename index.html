@@ -85,6 +85,15 @@
   <button id="load-more" type="button" hidden>さらに表示</button>
 </main>
 
+<!-- トップページ(検索していない状態)にだけ表示。リスナージングル以外の現行コーナーから、投稿を1つランダムに表示する -->
+<section id="random-pick-section" class="random-pick-section" aria-label="ランダム表示" hidden>
+  <div class="random-pick-header">
+    <h2 class="random-pick-heading">ランダム表示</h2>
+    <button id="random-pick-reload" type="button" class="random-pick-reload" aria-label="ランダムに別の投稿を表示">⟳</button>
+  </div>
+  <div id="random-pick-body" class="random-pick-body"></div>
+</section>
+
 <!-- トップページ(検索していない状態)にだけ表示。タップした回・ラジ父大喜利に絞り込んで表示する -->
 <section id="odai-section" class="odai-section" aria-label="ラジ父大喜利 お題一覧" hidden>
   <h2 class="odai-heading">ラジ父大喜利 お題一覧</h2>
