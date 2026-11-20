@@ -13,6 +13,7 @@
     activeSheet: 'ALL',
     subFilter: null, // { key, value } … 現在の activeSheet の追加の絞り込み(シートを切り替えると null に戻る)
     cornerKey: null, // CONFIG.cornerGroups の key、または '__other__'。activeSheet が cornerGroups.sheetName のときだけ意味を持つ
+    otherThemeValue: null, // cornerKey が '__other__' のとき、さらにテーマの値で絞り込む(null = その他全て)
     epFrom: null,
     epTo: null,
     sortMode: 'original', // 'original' | 'asc' | 'desc'
@@ -463,6 +464,11 @@
         const options = allCornerOptions();
         if (state.cornerKey === '__other__') {
           if (options.some((opt) => cornerOptionMatches(r, opt))) return false;
+          // さらに、その他の中の特定のテーマで絞り込む(空欄は「-」として扱う)
+          if (state.otherThemeValue !== null) {
+            const raw = getColumnValue(r, cg.column);
+            if ((raw === '' ? '-' : raw) !== state.otherThemeValue) return false;
+          }
         } else {
           const opt = options.find((o) => o.key === state.cornerKey);
           if (opt && !cornerOptionMatches(r, opt)) return false;
@@ -582,6 +588,25 @@
     return (cg.limited || []).concat(cg.ended || []);
   }
 
+  // 「その他」(期間限定/終了済みのどれにも当てはまらない投稿)の中の、実際のテーマの値ごとの一覧。
+  // 「ガクナッシュ」などと違って名前を決め打ちできないので、読み込んだデータから毎回拾い集める(件数の多い順。同数は五十音順)。
+  // テーマが空欄の投稿は「-」として、テーマが「-」の投稿と同じ扱いにする。
+  function dynamicOtherThemeOptions() {
+    const cg = CONFIG.cornerGroups;
+    const options = allCornerOptions();
+    const counts = new Map();
+    allRecords.forEach((r) => {
+      if (r.sheetName !== cg.sheetName) return;
+      if (options.some((opt) => cornerOptionMatches(r, opt))) return; // 期間限定/終了済みに該当する投稿は除く
+      const raw = getColumnValue(r, cg.column);
+      const value = raw === '' ? '-' : raw;
+      counts.set(value, (counts.get(value) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+      .map(([value, count]) => ({ value, count, label: value === '-' ? '-（件名不明）' : value }));
+  }
+
   // 投稿の対象列の値が、コーナー定義(opt)に一致するか。match(正規表現)があればそれで、なければ label と完全一致で判定する。
   function cornerOptionMatches(record, opt) {
     const val = getColumnValue(record, CONFIG.cornerGroups.column);
@@ -598,7 +623,8 @@
 
   // 「コーナーで絞り込み」: すべて / 現行コーナー(常に表示) / 期間限定・終了済み・その他(折りたたみ)
   function renderCornerFilter() {
-    const container = document.getElementById('corner-filter');
+    const mainContainer = document.getElementById('corner-filter-main');
+    const moreContainer = document.getElementById('corner-filter-more');
     const cg = CONFIG.cornerGroups;
     const otherSheetName = cg ? cg.sheetName : null;
     const inOtherGroup = cg !== undefined && cg !== null && state.activeSheet === otherSheetName && state.cornerKey !== null;
@@ -620,31 +646,49 @@
         const active = inOtherGroup && state.cornerKey === opt.key ? ' is-active' : '';
         return `<button type="button" class="filter-btn${active}" data-corner-key="${escapeHtml(opt.key)}">${escapeHtml(opt.label)}</button>`;
       };
-      const otherActive = inOtherGroup && state.cornerKey === '__other__' ? ' is-active' : '';
-      const otherHtml = `<button type="button" class="filter-btn${otherActive}" data-corner-key="__other__">${escapeHtml(cg.otherLabel || 'その他')}</button>`;
+      const inOther = inOtherGroup && state.cornerKey === '__other__';
+      const otherAllActive = inOther && state.otherThemeValue === null ? ' is-active' : '';
+      const otherAllHtml = `<button type="button" class="filter-btn${otherAllActive}" data-corner-key="__other__">${escapeHtml(cg.otherLabel || 'その他')}全て</button>`;
+      const otherThemeBtn = (opt) => {
+        const active = inOther && state.otherThemeValue === opt.value ? ' is-active' : '';
+        return (
+          `<button type="button" class="filter-btn${active}" data-corner-key="__other__" data-other-theme="${escapeHtml(opt.value)}">` +
+          `${escapeHtml(opt.label)}</button>`
+        );
+      };
+      const otherThemeOptions = dynamicOtherThemeOptions();
+
+      // 「終了済み」は、cg.ended が空の間(竹富島・日常RTAのように専用シート追加待ちの場合など)は見出しごと出さない
+      const endedOptions = cg.ended || [];
+      const endedHtml = endedOptions.length
+        ? `<div class="corner-subgroup">
+            <span class="corner-subgroup-label">終了済み</span>
+            <div class="corner-row">${endedOptions.map(cornerBtn).join('')}</div>
+          </div>`
+        : '';
+      const summaryLabel = endedOptions.length ? '期間限定・終了済み・その他のコーナー' : '期間限定・その他のコーナー';
 
       moreHtml = `
         <details class="corner-more"${inOtherGroup ? ' open' : ''}>
-          <summary>期間限定・終了済み・その他のコーナー</summary>
+          <summary>${summaryLabel}</summary>
           <div class="corner-subgroup">
             <span class="corner-subgroup-label">期間限定</span>
             <div class="corner-row">${(cg.limited || []).map(cornerBtn).join('')}</div>
           </div>
+          ${endedHtml}
           <div class="corner-subgroup">
-            <span class="corner-subgroup-label">終了済み</span>
-            <div class="corner-row">${(cg.ended || []).map(cornerBtn).join('')}</div>
-          </div>
-          <div class="corner-subgroup">
-            <div class="corner-row">${otherHtml}</div>
+            <span class="corner-subgroup-label">その他</span>
+            <div class="corner-row">${otherAllHtml}${otherThemeOptions.map(otherThemeBtn).join('')}</div>
           </div>
         </details>
       `;
     }
 
-    container.innerHTML =
-      `<div class="corner-row corner-row-all">${allHtml}</div>` +
-      `<div class="corner-row corner-row-current">${currentHtml}</div>` +
-      moreHtml;
+    // コーナー固有の追加の絞り込み(#sub-filter)を、「現行コーナー」の直下・「期間限定〜」の上に
+    // そのまま表示できるよう、2つのコンテナに分けて描画する(#sub-filter はこの間の静的なHTML要素)
+    mainContainer.innerHTML =
+      `<div class="corner-row corner-row-all">${allHtml}</div>` + `<div class="corner-row corner-row-current">${currentHtml}</div>`;
+    moreContainer.innerHTML = moreHtml;
   }
 
   function updateSortButtonLabel() {
@@ -679,6 +723,13 @@
           `<button type="button" class="active-chip-clear" data-clear="${it.key}" aria-label="${escapeHtml(it.text)}の絞り込みを解除">解除</button></span>`
       )
       .join('');
+
+    // 「ラジオネームで絞り込み」内にも、コーナー(ボタンの選択)・放送回(入力欄の値)と同様に、現在の選択状態をその場で表示する
+    const status = document.getElementById('radioname-exact-status');
+    status.hidden = state.radioExact === null;
+    if (state.radioExact !== null) {
+      document.getElementById('radioname-exact-status-text').textContent = state.radioExact;
+    }
   }
 
   // シートを選んだときだけ現れる、追加の絞り込み(お眼鏡賞のみ表示、正解で絞り込む、など)
@@ -739,6 +790,7 @@
     state.activeSheet = 'ALL';
     state.subFilter = null;
     state.cornerKey = null;
+    state.otherThemeValue = null;
     state.epFrom = null;
     state.epTo = null;
     state.sortMode = 'original';
@@ -762,6 +814,7 @@
     state.activeSheet = cfg.sheetName;
     state.subFilter = null;
     state.cornerKey = null;
+    state.otherThemeValue = null;
     state.epFrom = epNumeric;
     state.epTo = epNumeric;
     resetPaging();
@@ -826,6 +879,7 @@
     cornerFilter.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
+      state.otherThemeValue = null;
       if (btn.dataset.cornerAll) {
         state.activeSheet = 'ALL';
         state.cornerKey = null;
@@ -835,6 +889,7 @@
       } else if (btn.dataset.cornerKey) {
         state.activeSheet = CONFIG.cornerGroups.sheetName;
         state.cornerKey = btn.dataset.cornerKey;
+        if (btn.dataset.otherTheme !== undefined) state.otherThemeValue = btn.dataset.otherTheme;
       } else {
         return;
       }
@@ -861,20 +916,28 @@
       render();
     });
 
-    // 適用中の絞り込みの「解除」
-    activeFilters.addEventListener('click', (e) => {
-      const btn = e.target.closest('.active-chip-clear');
-      if (!btn) return;
-      if (btn.dataset.clear === 'radio') {
+    // 適用中の絞り込みの「解除」(固定の検索窓の下のチップと、「ラジオネームで絞り込み」内の表示、両方から呼ばれる)
+    const clearActiveFilter = (key) => {
+      if (key === 'radio') {
         state.radioExact = null;
-      } else if (btn.dataset.clear === 'episode') {
+      } else if (key === 'episode') {
         state.epFrom = null;
         state.epTo = null;
         epFrom.value = '';
         epTo.value = '';
+      } else {
+        return;
       }
       resetPaging();
       render();
+    };
+    activeFilters.addEventListener('click', (e) => {
+      const btn = e.target.closest('.active-chip-clear');
+      if (btn) clearActiveFilter(btn.dataset.clear);
+    });
+    document.getElementById('radioname-exact-status').addEventListener('click', (e) => {
+      const btn = e.target.closest('.active-chip-clear');
+      if (btn) clearActiveFilter(btn.dataset.clear);
     });
 
     resetAllBtn.addEventListener('click', resetAll);
@@ -962,6 +1025,7 @@
       renderLatestEpisode();
       odaiListData = buildOdaiList();
       renderOdaiList();
+      renderCornerFilter(); // 「その他」の中の個別テーマ一覧は、データが揃ってから出せるので、ここで作り直す
       render();
     });
   }

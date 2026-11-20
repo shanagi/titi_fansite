@@ -272,8 +272,24 @@ def main():
             fail("検索を消しても最新回バナーが戻りません。")
         print("OK: 検索を消すとトップに戻る")
 
-        # ラジオネーム検索
+        # ラジオネーム検索(キーワード検索と同じ見た目にする。固定の検索窓を高くしないよう、絞り込みパネル側に置く)
         page.click("#filter-panel summary")
+        ui_check = page.evaluate(
+            """() => ({
+              radioClass: document.getElementById('radioname-input').className,
+              keywordClass: document.getElementById('keyword-input').className,
+              activeFiltersInSearchBar: document.querySelector('.search-bar').contains(document.getElementById('active-filters')),
+              overflow: (() => { const i = document.getElementById('radioname-input'); const r = i.getBoundingClientRect();
+                return r.right > document.documentElement.clientWidth + 1; })(),
+            })"""
+        )
+        if ui_check["radioClass"] != ui_check["keywordClass"]:
+            fail(f"ラジオネーム検索欄が、キーワード検索欄と同じ見た目(クラス)になっていません: {ui_check}")
+        if ui_check["overflow"]:
+            fail("ラジオネーム検索欄が、画面の右端からはみ出しています。")
+        if not ui_check["activeFiltersInSearchBar"]:
+            fail("適用中の絞り込み(#active-filters)が、固定の検索窓(.search-bar)の中にありません。")
+        print("OK: ラジオネーム検索欄の見た目(キーワードと同じ) / 適用中の絞り込みが検索窓と同様に常に上部表示")
         if first_radioname:
             page.fill("#radioname-input", first_radioname)
             page.wait_for_timeout(400)
@@ -459,7 +475,8 @@ def main():
             fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
 
-        # コーナーで絞り込み: 期間限定/終了済み/その他(「その他」シートのテーマ列が対象。選択肢は名前で決め打ち)
+        # コーナーで絞り込み: 期間限定/その他(「その他」シートのテーマ列が対象。選択肢は名前で決め打ち。
+        # 竹富島・日常RTAは専用シート追加予定のため、cornerGroups.endedからは除外している)
         hdr, rows = fetch_rows("その他")
         i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
         body_rows = [r for r in rows if len(r) > max(i_theme, i_mail) and (r[i_theme].strip() or r[i_mail].strip())]
@@ -471,35 +488,62 @@ def main():
             ("gaku-nasshu", "ガクナッシュ", lambda v: v == "ガクナッシュ"),
             ("kokun-battle", "校訓バトル", lambda v: v == "校訓バトル"),
             ("futsuota", "ふつおた革命", lambda v: v == "ふつおた革命"),
-            ("taketomi", "竹富島", lambda v: v == "竹富島"),
-            ("nichijou-rta", "日常RTA", lambda v: v == "日常RTA"),
         ]
         expect_corner = {key: sum(1 for v in themes_raw if match(v)) for key, _label, match in named_corners}
         expect_other = sum(1 for v in themes_raw if not any(match(v) for _k, _l, match in named_corners))
 
-        # 絞り込みパネルを開いて、入れ子の「期間限定・終了済み・その他のコーナー」も開く
+        # 絞り込みパネルを開いて、入れ子の「期間限定・その他のコーナー」も開く
+        # (竹富島・日常RTAは、専用シート追加待ちのため「終了済み」は今は空。見出しごと出ない)
         if not page.evaluate("document.getElementById('filter-panel').open"):
             page.click("#filter-panel summary")
         if not page.evaluate("document.querySelector('.corner-more').open"):
             page.click(".corner-more summary")
 
-        # ボタンの並びが、期間限定5つ・終了済み2つ・その他1つ、の構成になっている
+        corner_more_summary = (page.text_content(".corner-more summary") or "").strip()
+        if corner_more_summary != "期間限定・その他のコーナー":
+            fail(f"「終了済み」が空の間の見出し文言が違います: {corner_more_summary!r}")
+        if page.query_selector(".corner-more .corner-subgroup-label:text('終了済み')"):
+            fail("「終了済み」が空なのに、見出しが表示されています。")
+
+        # ボタンの並びが、期間限定5つ・その他1つ、の構成になっている(終了済みは0件のため見出しごと非表示)
         limited_labels = page.eval_on_selector_all(
             ".corner-more .corner-subgroup:nth-of-type(1) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
-        ended_labels = page.eval_on_selector_all(
-            ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
-        )
+        other_subgroup_label = page.text_content(".corner-more .corner-subgroup:nth-of-type(2) .corner-subgroup-label")
         other_labels = page.eval_on_selector_all(
-            ".corner-more .corner-subgroup:nth-of-type(3) .filter-btn", "els => els.map(e => e.textContent.trim())"
+            ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
         if limited_labels != ["嘘松大捜査", "この世は壁だらけ", "ガクナッシュ", "校訓バトル", "ふつおた革命"]:
             fail(f"「期間限定」のコーナーの並び・表示が違います: {limited_labels}")
-        if ended_labels != ["竹富島", "日常RTA"]:
-            fail(f"「終了済み」のコーナーの並び・表示が違います: {ended_labels}")
-        if other_labels != ["その他"]:
-            fail(f"「その他」のコーナーの表示が違います: {other_labels}")
-        print("OK: 「期間限定・終了済み・その他のコーナー」の並び・表示")
+        if (other_subgroup_label or "").strip() != "その他":
+            fail(f"「その他」の見出し(期間限定と同じ灰色の小見出し)がありません: {other_subgroup_label!r}")
+        if not other_labels or other_labels[0] != "その他全て":
+            fail(f"「その他全て」ボタンが先頭にありません: {other_labels}")
+        print("OK: 「期間限定・その他のコーナー」の並び・表示(終了済みが空の間は見出しごと非表示)")
+
+        # 「その他」の中は、個別のテーマでも選べる(選択肢はあらかじめ書かず、データから毎回拾い集める)
+        other_theme_counts = collections.Counter(
+            "-" if v == "" else v for v in themes_raw if not any(match(v) for _k, _l, match in named_corners)
+        )
+        other_theme_buttons = page.query_selector_all(
+            '.corner-more .corner-subgroup:nth-of-type(2) .filter-btn[data-other-theme]'
+        )
+        if len(other_theme_buttons) != len(other_theme_counts):
+            fail(
+                f"「その他」内の個別テーマの選択肢の数が、スプレッドシートの実際の値({len(other_theme_counts)}種類)と合いません"
+                f"(ボタン{len(other_theme_buttons)}個)。"
+            )
+        top_other_theme, top_other_expect = other_theme_counts.most_common(1)[0]
+        top_other_label = "-（件名不明）" if top_other_theme == "-" else top_other_theme
+        top_other_btn = page.query_selector(f'.filter-btn[data-corner-key="__other__"][data-other-theme="{top_other_theme}"]')
+        if not top_other_btn or top_other_btn.text_content().strip() != top_other_label:
+            fail(f"「その他」内のテーマ「{top_other_theme}」のボタンが、想定の表示(「{top_other_label}」)と違います。")
+        top_other_btn.click()
+        page.wait_for_timeout(400)
+        got_top_other = sub_count()
+        if got_top_other != top_other_expect:
+            fail(f"「その他」内のテーマ「{top_other_theme}」の絞り込みの件数が違います: {got_top_other}(期待{top_other_expect})")
+        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件)")
 
         # 各コーナーの件数が、スプレッドシートから数えた値と一致する(「嘘松大捜査」は年が変わっても前方一致で拾う)
         for key, label, _match in named_corners:
@@ -508,15 +552,15 @@ def main():
             got = sub_count()
             if got != expect_corner[key]:
                 fail(f"「{label}」の絞り込みの件数が違います: {got}(期待{expect_corner[key]})")
-        print(f"OK: 期間限定/終了済みコーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
+        print(f"OK: 期間限定コーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
 
-        # 「その他」(期間限定/終了済みのどれにも当てはまらない投稿をまとめたもの)
-        page.click('.filter-btn[data-corner-key="__other__"]')
+        # 「その他全て」(期間限定のどれにも当てはまらない投稿をまとめたもの)
+        page.click('.filter-btn[data-corner-key="__other__"]:not([data-other-theme])')
         page.wait_for_timeout(400)
         got_other = sub_count()
         if got_other != expect_other:
-            fail(f"「その他」コーナーの件数が違います: {got_other}(期待{expect_other})")
-        print(f"OK: 「その他」コーナーの絞り込み ({got_other}件)")
+            fail(f"「その他全て」の件数が違います: {got_other}(期待{expect_other})")
+        print(f"OK: 「その他全て」の絞り込み ({got_other}件)")
 
         # その他: 本文(メール)中の「---」は、文字が消えてそこで改行される。
         # 「---」を含む投稿が実際にあるテーマ(ガクナッシュ)を選んで絞り込んでから確認する。
@@ -648,8 +692,17 @@ def main():
         names = set(page.eval_on_selector_all(".result-card .radioname-chip", "els => els.map(e => e.dataset.radioname)"))
         if names != {name} or f"ラジオネーム：{name}" not in (page.text_content("#active-filters") or ""):
             fail(f"ラジオネームのタップで絞り込めていません: {names}")
-        page.click('.active-chip-clear[data-clear="radio"]')
+        # 「ラジオネームで絞り込み」内にも、コーナー・放送回と同様に、現在の選択状態がその場で見える
+        if not page.evaluate("document.getElementById('filter-panel').open"):
+            page.click("#filter-panel summary")
+        status_text = (page.text_content("#radioname-exact-status-text") or "").strip()
+        if page.get_attribute("#radioname-exact-status", "hidden") is not None or status_text != name:
+            fail(f"「ラジオネームで絞り込み」内に、選択中のラジオネームが表示されていません: {status_text!r}(期待{name!r})")
+        print("OK: ラジオネーム欄内にも選択状態を表示(コーナー・放送回と同様)")
+        page.click("#active-filters .active-chip-clear[data-clear=\"radio\"]")
         page.wait_for_timeout(300)
+        if page.get_attribute("#radioname-exact-status", "hidden") is None:
+            fail("固定の検索窓側で解除しても、「ラジオネームで絞り込み」内の表示が消えません。")
         page.fill("#keyword-input", "")
         page.wait_for_timeout(400)
         print("OK: ラジオネームのタップで絞り込み・解除")

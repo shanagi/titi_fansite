@@ -27,22 +27,26 @@
 </header>
 
 <div class="search-bar" role="search">
-  <input id="keyword-input" type="search" placeholder="キーワード検索(スペースでAND)" aria-label="キーワード検索">
+  <input id="keyword-input" class="search-input" type="search" placeholder="キーワード検索(スペースでAND)" aria-label="キーワード検索">
+  <!-- 適用中の絞り込み: 検索窓のすぐ下に、検索窓と同じく常に上部に表示する -->
+  <div id="active-filters" class="active-filters" aria-label="適用中の絞り込み" hidden></div>
   <div class="search-row">
     <button id="reset-all" class="reset-btn" type="button" title="検索・絞り込みをすべてリセット" aria-label="検索・絞り込みをすべてリセット" hidden>リセット</button>
   </div>
 </div>
-
-<!-- 適用中の絞り込み: 固定の検索欄を高くしないよう、検索欄の外(下)に置く -->
-<div id="active-filters" class="active-filters" aria-label="適用中の絞り込み" hidden></div>
 
 <details id="filter-panel" class="filter-panel">
   <summary>絞り込み</summary>
   <div class="filter-panel-body">
     <div class="filter-section">
       <h3 class="filter-section-heading">コーナーで絞り込み</h3>
-      <div class="filter-group" id="corner-filter" role="group" aria-label="コーナーで絞り込み"></div>
-      <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
+      <!-- コーナー固有の追加の絞り込み(#sub-filter)は、「現行コーナー」の直下・「期間限定〜」の上に置く。
+           そのコーナーを選んだときに、関係ない「期間限定〜」より先に、すぐ近くに現れるようにするため。 -->
+      <div class="filter-group" id="corner-filter" role="group" aria-label="コーナーで絞り込み">
+        <div id="corner-filter-main"></div>
+        <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
+        <div id="corner-filter-more"></div>
+      </div>
     </div>
     <div class="filter-section">
       <h3 class="filter-section-heading">放送回で絞り込み</h3>
@@ -56,7 +60,12 @@
     <div class="filter-section">
       <h3 class="filter-section-heading">ラジオネームで絞り込み</h3>
       <div class="filter-group">
-        <input id="radioname-input" type="search" placeholder="ラジオネーム検索" aria-label="ラジオネーム検索">
+        <input id="radioname-input" class="search-input" type="search" placeholder="ラジオネーム検索" aria-label="ラジオネーム検索">
+        <!-- ラジオネームのタップ(完全一致)による絞り込みの、現在の選択状態。コーナー(ボタンの選択)・放送回(入力欄の値)と同様に、ここでも直接見える形にする -->
+        <div id="radioname-exact-status" class="radioname-exact-status" hidden>
+          <span>完全一致で絞り込み中：<strong id="radioname-exact-status-text"></strong></span>
+          <button type="button" class="active-chip-clear" data-clear="radio" aria-label="ラジオネームの絞り込みを解除">解除</button>
+        </div>
       </div>
     </div>
   </div>
