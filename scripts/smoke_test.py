@@ -315,14 +315,23 @@ def main():
             fail(f"現行コーナーのボタンの並びが仕様と違います:\n  実際: {actual_order}\n  仕様: {expected_order}")
         print("OK: 現行コーナーのボタンの並び順(「すべて」+ その他以外の全コーナー、最初から表示)")
         if len(sheet_buttons) > 1:
+            sheet_label = sheet_buttons[1].text_content().strip()
             sheet_buttons[1].click()
             page.wait_for_timeout(400)
             sheet_text = (page.text_content("#result-count") or "").strip()
             if "全" not in sheet_text:
                 fail(f"コーナーで絞り込みで検索結果が表示されていません: {sheet_text!r}")
             print(f"OK: コーナーで絞り込み ({sheet_text})")
-            page.query_selector(CORNER_FLAT_SELECTOR).click()  # 「すべて」に戻す
+
+            # コーナーで絞り込んだときも、放送回・ラジオネームと同様に、検索窓の下にチップ+解除ボタンが出る
+            chip_text = (page.text_content("#active-filters") or "").strip()
+            if f"コーナー：{sheet_label}" not in chip_text:
+                fail(f"コーナーで絞り込み中のチップが表示されていません: {chip_text!r}(期待するコーナー名: {sheet_label!r})")
+            page.click('#active-filters .active-chip-clear[data-clear="corner"]')
             page.wait_for_timeout(300)
+            if not page.query_selector(CORNER_FLAT_SELECTOR).evaluate("e => e.classList.contains('is-active')"):
+                fail("コーナーのチップの「解除」を押しても、「すべて」に戻っていません。")
+            print(f"OK: コーナーで絞り込み中のチップ表示・解除 ({sheet_label})")
         else:
             fail("現行コーナーのボタンが見つかりません。")
 
@@ -543,7 +552,11 @@ def main():
         got_top_other = sub_count()
         if got_top_other != top_other_expect:
             fail(f"「その他」内のテーマ「{top_other_theme}」の絞り込みの件数が違います: {got_top_other}(期待{top_other_expect})")
-        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件)")
+        # 「その他」内の個別テーマを選んだときも、検索窓の下にそのテーマ名のチップが出る
+        other_chip_text = (page.text_content("#active-filters") or "").strip()
+        if f"コーナー：{top_other_label}" not in other_chip_text:
+            fail(f"「その他」内の個別テーマ選択時のチップが違います: {other_chip_text!r}(期待するテーマ名: {top_other_label!r})")
+        print(f"OK: 「その他」内の個別テーマの絞り込み(選択肢{len(other_theme_counts)}種類、最多「{top_other_label}」{top_other_expect}件、チップ表示あり)")
 
         # 各コーナーの件数が、スプレッドシートから数えた値と一致する(「嘘松大捜査」は年が変わっても前方一致で拾う)
         for key, label, _match in named_corners:

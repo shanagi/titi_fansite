@@ -697,7 +697,7 @@
     btn.textContent = `並び替え: ${labels[state.sortMode]}`;
   }
 
-  // 適用中の絞り込み(ラジオネームの完全一致・放送回の範囲)を、解除ボタン付きのチップで見せる
+  // 適用中の絞り込み(コーナー・ラジオネームの完全一致・放送回の範囲)を、解除ボタン付きのチップで見せる
   function episodeRangeText() {
     const f = state.epFrom;
     const t = state.epTo;
@@ -706,14 +706,33 @@
     return f !== null ? `第${f}回以降` : `第${t}回まで`;
   }
 
+  // 現在選ばれているコーナーの表示名(「すべて」のときは null)。「コーナーで絞り込み」のボタン表示に合わせる
+  function cornerActiveLabel() {
+    if (state.activeSheet === 'ALL') return null;
+    const cg = CONFIG.cornerGroups;
+    if (cg && state.activeSheet === cg.sheetName) {
+      if (state.cornerKey === '__other__') {
+        if (state.otherThemeValue === null) return `${cg.otherLabel || 'その他'}全て`;
+        const opt = dynamicOtherThemeOptions().find((o) => o.value === state.otherThemeValue);
+        return opt ? opt.label : state.otherThemeValue;
+      }
+      const opt = allCornerOptions().find((o) => o.key === state.cornerKey);
+      return opt ? opt.label : null;
+    }
+    const sheetConfig = CONFIG.sheets.find((s) => s.name === state.activeSheet);
+    return sheetConfig ? sheetConfig.displayName || sheetConfig.name : state.activeSheet;
+  }
+
   function renderActiveFilters() {
     const box = document.getElementById('active-filters');
     const items = [];
+    const cornerLabel = cornerActiveLabel();
+    if (cornerLabel !== null) items.push({ key: 'corner', text: `コーナー：${cornerLabel}` });
+    const epText = episodeRangeText();
+    if (epText !== null) items.push({ key: 'episode', text: epText });
     if (state.radioExact !== null) {
       items.push({ key: 'radio', text: `ラジオネーム：${state.radioExact}` });
     }
-    const epText = episodeRangeText();
-    if (epText !== null) items.push({ key: 'episode', text: epText });
 
     box.hidden = items.length === 0;
     box.innerHTML = items
@@ -925,6 +944,12 @@
         state.epTo = null;
         epFrom.value = '';
         epTo.value = '';
+      } else if (key === 'corner') {
+        state.activeSheet = 'ALL';
+        state.cornerKey = null;
+        state.otherThemeValue = null;
+        state.subFilter = null;
+        renderCornerFilter();
       } else {
         return;
       }
