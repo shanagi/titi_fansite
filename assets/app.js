@@ -714,6 +714,13 @@
           `<button type="button" class="active-chip-clear" data-clear="${it.key}" aria-label="${escapeHtml(it.text)}の絞り込みを解除">解除</button></span>`
       )
       .join('');
+
+    // 「ラジオネームで絞り込み」内にも、コーナー(ボタンの選択)・放送回(入力欄の値)と同様に、現在の選択状態をその場で表示する
+    const status = document.getElementById('radioname-exact-status');
+    status.hidden = state.radioExact === null;
+    if (state.radioExact !== null) {
+      document.getElementById('radioname-exact-status-text').textContent = state.radioExact;
+    }
   }
 
   // シートを選んだときだけ現れる、追加の絞り込み(お眼鏡賞のみ表示、正解で絞り込む、など)
@@ -900,20 +907,28 @@
       render();
     });
 
-    // 適用中の絞り込みの「解除」
-    activeFilters.addEventListener('click', (e) => {
-      const btn = e.target.closest('.active-chip-clear');
-      if (!btn) return;
-      if (btn.dataset.clear === 'radio') {
+    // 適用中の絞り込みの「解除」(固定の検索窓の下のチップと、「ラジオネームで絞り込み」内の表示、両方から呼ばれる)
+    const clearActiveFilter = (key) => {
+      if (key === 'radio') {
         state.radioExact = null;
-      } else if (btn.dataset.clear === 'episode') {
+      } else if (key === 'episode') {
         state.epFrom = null;
         state.epTo = null;
         epFrom.value = '';
         epTo.value = '';
+      } else {
+        return;
       }
       resetPaging();
       render();
+    };
+    activeFilters.addEventListener('click', (e) => {
+      const btn = e.target.closest('.active-chip-clear');
+      if (btn) clearActiveFilter(btn.dataset.clear);
+    });
+    document.getElementById('radioname-exact-status').addEventListener('click', (e) => {
+      const btn = e.target.closest('.active-chip-clear');
+      if (btn) clearActiveFilter(btn.dataset.clear);
     });
 
     resetAllBtn.addEventListener('click', resetAll);

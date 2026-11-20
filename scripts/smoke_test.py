@@ -272,8 +272,24 @@ def main():
             fail("検索を消しても最新回バナーが戻りません。")
         print("OK: 検索を消すとトップに戻る")
 
-        # ラジオネーム検索
+        # ラジオネーム検索(キーワード検索と同じ見た目にする。固定の検索窓を高くしないよう、絞り込みパネル側に置く)
         page.click("#filter-panel summary")
+        ui_check = page.evaluate(
+            """() => ({
+              radioClass: document.getElementById('radioname-input').className,
+              keywordClass: document.getElementById('keyword-input').className,
+              activeFiltersInSearchBar: document.querySelector('.search-bar').contains(document.getElementById('active-filters')),
+              overflow: (() => { const i = document.getElementById('radioname-input'); const r = i.getBoundingClientRect();
+                return r.right > document.documentElement.clientWidth + 1; })(),
+            })"""
+        )
+        if ui_check["radioClass"] != ui_check["keywordClass"]:
+            fail(f"ラジオネーム検索欄が、キーワード検索欄と同じ見た目(クラス)になっていません: {ui_check}")
+        if ui_check["overflow"]:
+            fail("ラジオネーム検索欄が、画面の右端からはみ出しています。")
+        if not ui_check["activeFiltersInSearchBar"]:
+            fail("適用中の絞り込み(#active-filters)が、固定の検索窓(.search-bar)の中にありません。")
+        print("OK: ラジオネーム検索欄の見た目(キーワードと同じ) / 適用中の絞り込みが検索窓と同様に常に上部表示")
         if first_radioname:
             page.fill("#radioname-input", first_radioname)
             page.wait_for_timeout(400)
@@ -675,8 +691,17 @@ def main():
         names = set(page.eval_on_selector_all(".result-card .radioname-chip", "els => els.map(e => e.dataset.radioname)"))
         if names != {name} or f"ラジオネーム：{name}" not in (page.text_content("#active-filters") or ""):
             fail(f"ラジオネームのタップで絞り込めていません: {names}")
-        page.click('.active-chip-clear[data-clear="radio"]')
+        # 「ラジオネームで絞り込み」内にも、コーナー・放送回と同様に、現在の選択状態がその場で見える
+        if not page.evaluate("document.getElementById('filter-panel').open"):
+            page.click("#filter-panel summary")
+        status_text = (page.text_content("#radioname-exact-status-text") or "").strip()
+        if page.get_attribute("#radioname-exact-status", "hidden") is not None or status_text != name:
+            fail(f"「ラジオネームで絞り込み」内に、選択中のラジオネームが表示されていません: {status_text!r}(期待{name!r})")
+        print("OK: ラジオネーム欄内にも選択状態を表示(コーナー・放送回と同様)")
+        page.click("#active-filters .active-chip-clear[data-clear=\"radio\"]")
         page.wait_for_timeout(300)
+        if page.get_attribute("#radioname-exact-status", "hidden") is None:
+            fail("固定の検索窓側で解除しても、「ラジオネームで絞り込み」内の表示が消えません。")
         page.fill("#keyword-input", "")
         page.wait_for_timeout(400)
         print("OK: ラジオネームのタップで絞り込み・解除")

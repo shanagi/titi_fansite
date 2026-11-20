@@ -102,7 +102,6 @@ input {
 .wrap,
 .search-bar,
 .filter-panel,
-.active-filters,
 .latest-banner,
 main,
 .odai-section,
@@ -181,7 +180,8 @@ main,
   margin-top: 8px;
 }
 
-.search-bar input[type="search"] {
+/* キーワード検索・ラジオネーム検索は、置き場所(固定の検索窓/絞り込みパネル)によらず同じ見た目にする */
+.search-input {
   width: 100%;
   min-height: var(--tap-min);
   padding: 8px 14px;
@@ -194,18 +194,18 @@ main,
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.search-bar input[type="search"]:hover,
-.search-bar input[type="search"]:focus {
+.search-input:hover,
+.search-input:focus {
   border-color: var(--accent);
   background: var(--bg);
 }
 
-/* 適用中の絞り込み(ラジオネーム・放送回)。解除ボタン付きのチップを並べる */
+/* 適用中の絞り込み(ラジオネーム・放送回)。解除ボタン付きのチップを並べる。
+   固定の検索窓の中に置くので、検索窓と同じく常に上部に表示される。 */
 .active-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
 }
 
 .active-chip {
@@ -239,6 +239,25 @@ main,
   font-weight: 700;
   font-size: 0.8rem;
   cursor: pointer;
+}
+
+/* 「ラジオネームで絞り込み」内の、完全一致の現在の選択状態(コーナーのボタン・放送回の入力欄と同様に、その場で見える形にする) */
+.radioname-exact-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 6px 6px 14px;
+  background: var(--accent);
+  border-radius: 999px;
+  color: var(--on-accent);
+  font-size: 0.85rem;
+}
+
+.radioname-exact-status strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 /* リセットボタン(検索・絞り込み中だけ表示)。右寄せにする */
