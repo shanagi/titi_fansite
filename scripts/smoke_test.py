@@ -475,7 +475,8 @@ def main():
             fail(f"「わかりますか？」の絞り込みの件数が違います: わかる={got_yes}(期待{expect_yes}) わからない={got_no}(期待{expect_no})")
         print(f"OK: ガクにもわかりますか？「わかりますか？」の絞り込み (わかる{expect_yes}件 / わからない{expect_no}件)")
 
-        # コーナーで絞り込み: 期間限定/終了済み/その他(「その他」シートのテーマ列が対象。選択肢は名前で決め打ち)
+        # コーナーで絞り込み: 期間限定/その他(「その他」シートのテーマ列が対象。選択肢は名前で決め打ち。
+        # 竹富島・日常RTAは専用シート追加予定のため、cornerGroups.endedからは除外している)
         hdr, rows = fetch_rows("その他")
         i_theme, i_mail = hdr.index("テーマ"), hdr.index("メール")
         body_rows = [r for r in rows if len(r) > max(i_theme, i_mail) and (r[i_theme].strip() or r[i_mail].strip())]
@@ -487,45 +488,45 @@ def main():
             ("gaku-nasshu", "ガクナッシュ", lambda v: v == "ガクナッシュ"),
             ("kokun-battle", "校訓バトル", lambda v: v == "校訓バトル"),
             ("futsuota", "ふつおた革命", lambda v: v == "ふつおた革命"),
-            ("taketomi", "竹富島", lambda v: v == "竹富島"),
-            ("nichijou-rta", "日常RTA", lambda v: v == "日常RTA"),
         ]
         expect_corner = {key: sum(1 for v in themes_raw if match(v)) for key, _label, match in named_corners}
         expect_other = sum(1 for v in themes_raw if not any(match(v) for _k, _l, match in named_corners))
 
-        # 絞り込みパネルを開いて、入れ子の「期間限定・終了済み・その他のコーナー」も開く
+        # 絞り込みパネルを開いて、入れ子の「期間限定・その他のコーナー」も開く
+        # (竹富島・日常RTAは、専用シート追加待ちのため「終了済み」は今は空。見出しごと出ない)
         if not page.evaluate("document.getElementById('filter-panel').open"):
             page.click("#filter-panel summary")
         if not page.evaluate("document.querySelector('.corner-more').open"):
             page.click(".corner-more summary")
 
-        # ボタンの並びが、期間限定5つ・終了済み2つ・その他1つ、の構成になっている
+        corner_more_summary = (page.text_content(".corner-more summary") or "").strip()
+        if corner_more_summary != "期間限定・その他のコーナー":
+            fail(f"「終了済み」が空の間の見出し文言が違います: {corner_more_summary!r}")
+        if page.query_selector(".corner-more .corner-subgroup-label:text('終了済み')"):
+            fail("「終了済み」が空なのに、見出しが表示されています。")
+
+        # ボタンの並びが、期間限定5つ・その他1つ、の構成になっている(終了済みは0件のため見出しごと非表示)
         limited_labels = page.eval_on_selector_all(
             ".corner-more .corner-subgroup:nth-of-type(1) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
-        ended_labels = page.eval_on_selector_all(
-            ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
-        )
-        other_subgroup_label = page.text_content(".corner-more .corner-subgroup:nth-of-type(3) .corner-subgroup-label")
+        other_subgroup_label = page.text_content(".corner-more .corner-subgroup:nth-of-type(2) .corner-subgroup-label")
         other_labels = page.eval_on_selector_all(
-            ".corner-more .corner-subgroup:nth-of-type(3) .filter-btn", "els => els.map(e => e.textContent.trim())"
+            ".corner-more .corner-subgroup:nth-of-type(2) .filter-btn", "els => els.map(e => e.textContent.trim())"
         )
         if limited_labels != ["嘘松大捜査", "この世は壁だらけ", "ガクナッシュ", "校訓バトル", "ふつおた革命"]:
             fail(f"「期間限定」のコーナーの並び・表示が違います: {limited_labels}")
-        if ended_labels != ["竹富島", "日常RTA"]:
-            fail(f"「終了済み」のコーナーの並び・表示が違います: {ended_labels}")
         if (other_subgroup_label or "").strip() != "その他":
-            fail(f"「その他」の見出し(期間限定/終了済みと同じ灰色の小見出し)がありません: {other_subgroup_label!r}")
+            fail(f"「その他」の見出し(期間限定と同じ灰色の小見出し)がありません: {other_subgroup_label!r}")
         if not other_labels or other_labels[0] != "その他全て":
             fail(f"「その他全て」ボタンが先頭にありません: {other_labels}")
-        print("OK: 「期間限定・終了済み・その他のコーナー」の並び・表示(「その他」にも見出しが付いている)")
+        print("OK: 「期間限定・その他のコーナー」の並び・表示(終了済みが空の間は見出しごと非表示)")
 
         # 「その他」の中は、個別のテーマでも選べる(選択肢はあらかじめ書かず、データから毎回拾い集める)
         other_theme_counts = collections.Counter(
             "-" if v == "" else v for v in themes_raw if not any(match(v) for _k, _l, match in named_corners)
         )
         other_theme_buttons = page.query_selector_all(
-            '.corner-more .corner-subgroup:nth-of-type(3) .filter-btn[data-other-theme]'
+            '.corner-more .corner-subgroup:nth-of-type(2) .filter-btn[data-other-theme]'
         )
         if len(other_theme_buttons) != len(other_theme_counts):
             fail(
@@ -551,9 +552,9 @@ def main():
             got = sub_count()
             if got != expect_corner[key]:
                 fail(f"「{label}」の絞り込みの件数が違います: {got}(期待{expect_corner[key]})")
-        print(f"OK: 期間限定/終了済みコーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
+        print(f"OK: 期間限定コーナーの絞り込み ({', '.join(f'{l}{expect_corner[k]}件' for k, l, _m in named_corners)})")
 
-        # 「その他全て」(期間限定/終了済みのどれにも当てはまらない投稿をまとめたもの)
+        # 「その他全て」(期間限定のどれにも当てはまらない投稿をまとめたもの)
         page.click('.filter-btn[data-corner-key="__other__"]:not([data-other-theme])')
         page.wait_for_timeout(400)
         got_other = sub_count()

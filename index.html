@@ -40,8 +40,13 @@
   <div class="filter-panel-body">
     <div class="filter-section">
       <h3 class="filter-section-heading">コーナーで絞り込み</h3>
-      <div class="filter-group" id="corner-filter" role="group" aria-label="コーナーで絞り込み"></div>
-      <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
+      <!-- コーナー固有の追加の絞り込み(#sub-filter)は、「現行コーナー」の直下・「期間限定〜」の上に置く。
+           そのコーナーを選んだときに、関係ない「期間限定〜」より先に、すぐ近くに現れるようにするため。 -->
+      <div class="filter-group" id="corner-filter" role="group" aria-label="コーナーで絞り込み">
+        <div id="corner-filter-main"></div>
+        <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
+        <div id="corner-filter-more"></div>
+      </div>
     </div>
     <div class="filter-section">
       <h3 class="filter-section-heading">放送回で絞り込み</h3>

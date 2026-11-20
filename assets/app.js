@@ -623,7 +623,8 @@
 
   // 「コーナーで絞り込み」: すべて / 現行コーナー(常に表示) / 期間限定・終了済み・その他(折りたたみ)
   function renderCornerFilter() {
-    const container = document.getElementById('corner-filter');
+    const mainContainer = document.getElementById('corner-filter-main');
+    const moreContainer = document.getElementById('corner-filter-more');
     const cg = CONFIG.cornerGroups;
     const otherSheetName = cg ? cg.sheetName : null;
     const inOtherGroup = cg !== undefined && cg !== null && state.activeSheet === otherSheetName && state.cornerKey !== null;
@@ -657,17 +658,24 @@
       };
       const otherThemeOptions = dynamicOtherThemeOptions();
 
+      // 「終了済み」は、cg.ended が空の間(竹富島・日常RTAのように専用シート追加待ちの場合など)は見出しごと出さない
+      const endedOptions = cg.ended || [];
+      const endedHtml = endedOptions.length
+        ? `<div class="corner-subgroup">
+            <span class="corner-subgroup-label">終了済み</span>
+            <div class="corner-row">${endedOptions.map(cornerBtn).join('')}</div>
+          </div>`
+        : '';
+      const summaryLabel = endedOptions.length ? '期間限定・終了済み・その他のコーナー' : '期間限定・その他のコーナー';
+
       moreHtml = `
         <details class="corner-more"${inOtherGroup ? ' open' : ''}>
-          <summary>期間限定・終了済み・その他のコーナー</summary>
+          <summary>${summaryLabel}</summary>
           <div class="corner-subgroup">
             <span class="corner-subgroup-label">期間限定</span>
             <div class="corner-row">${(cg.limited || []).map(cornerBtn).join('')}</div>
           </div>
-          <div class="corner-subgroup">
-            <span class="corner-subgroup-label">終了済み</span>
-            <div class="corner-row">${(cg.ended || []).map(cornerBtn).join('')}</div>
-          </div>
+          ${endedHtml}
           <div class="corner-subgroup">
             <span class="corner-subgroup-label">その他</span>
             <div class="corner-row">${otherAllHtml}${otherThemeOptions.map(otherThemeBtn).join('')}</div>
@@ -676,10 +684,11 @@
       `;
     }
 
-    container.innerHTML =
-      `<div class="corner-row corner-row-all">${allHtml}</div>` +
-      `<div class="corner-row corner-row-current">${currentHtml}</div>` +
-      moreHtml;
+    // コーナー固有の追加の絞り込み(#sub-filter)を、「現行コーナー」の直下・「期間限定〜」の上に
+    // そのまま表示できるよう、2つのコンテナに分けて描画する(#sub-filter はこの間の静的なHTML要素)
+    mainContainer.innerHTML =
+      `<div class="corner-row corner-row-all">${allHtml}</div>` + `<div class="corner-row corner-row-current">${currentHtml}</div>`;
+    moreContainer.innerHTML = moreHtml;
   }
 
   function updateSortButtonLabel() {
