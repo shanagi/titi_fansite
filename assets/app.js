@@ -19,6 +19,7 @@
     sortMode: 'original', // 'original' | 'asc' | 'desc'
     visibleCount: PAGE_SIZE,
     topOpen: false, // トップ(最新回の投稿)の一覧を開いているか。初期は折りたたむ
+    randomPickRecord: null, // トップの「ランダム表示」で選ばれている投稿。null = まだ選んでいない(説明文を表示)
   };
 
   let allRecords = [];
@@ -353,6 +354,50 @@
     // 表示・非表示は render() が、検索中かどうかに応じて切り替える
   }
 
+  // 「ランダム表示」(トップページにだけ表示)。リスナージングル以外の現行コーナー(「その他」も除く)が対象。
+  // 放送回・ラジオネームがどちらも空の投稿は、実質的に空の行(スプレッドシート側のテンプレート文字列の
+  // 残りなど)である可能性が高いため、ランダム表示には出さない。
+  function randomPickPool() {
+    const cg = CONFIG.cornerGroups;
+    const otherSheetName = cg ? cg.sheetName : null;
+    const eligibleSheetNames = new Set(
+      CONFIG.sheets.filter((s) => s.name !== otherSheetName && !s.randomPickExclude).map((s) => s.name)
+    );
+    return allRecords.filter((r) => eligibleSheetNames.has(r.sheetName) && (r.episodeRaw !== '' || r.radioName !== ''));
+  }
+
+  function pickRandomRecord() {
+    const pool = randomPickPool();
+    if (!pool.length) return null;
+    let candidate = pool[Math.floor(Math.random() * pool.length)];
+    // できれば直前と同じ投稿を続けて出さない(プールが1件しかなければそのまま)
+    let guard = 0;
+    while (pool.length > 1 && candidate === state.randomPickRecord && guard < 10) {
+      candidate = pool[Math.floor(Math.random() * pool.length)];
+      guard += 1;
+    }
+    return candidate;
+  }
+
+  function renderRandomPick() {
+    const section = document.getElementById('random-pick-section');
+    const body = document.getElementById('random-pick-body');
+    const pool = randomPickPool();
+    section.hidden = isSearching() || pool.length === 0;
+    if (section.hidden) return;
+    if (state.randomPickRecord === null) {
+      body.innerHTML =
+        '<p class="random-pick-intro">リスナージングル以外のコーナーから、投稿をランダムに1つ表示します。' +
+        '右上の「⟳」ボタンを押してみてください。</p>';
+      return;
+    }
+    body.innerHTML = '';
+    const ul = document.createElement('ul');
+    ul.className = 'results-list random-pick-list';
+    ul.appendChild(renderCard(state.randomPickRecord, []));
+    body.appendChild(ul);
+  }
+
   function render() {
     const resultsList = document.getElementById('results-list');
     const resultCount = document.getElementById('result-count');
@@ -401,6 +446,7 @@
     sortToggle.hidden = !searching;
     document.getElementById('reset-all').hidden = !searching;
     document.getElementById('odai-section').hidden = searching || !odaiListData.length;
+    renderRandomPick();
 
     if (searching) {
       resultCount.textContent = `${sorted.length}件 / 全${allRecords.length}件`;
@@ -814,6 +860,7 @@
     state.epTo = null;
     state.sortMode = 'original';
     state.topOpen = false;
+    state.randomPickRecord = null; // ランダム表示も、説明文の初期状態に戻す
     resetPaging();
     ['keyword-input', 'radioname-input', 'episode-from', 'episode-to'].forEach((id) => {
       document.getElementById(id).value = '';
@@ -991,7 +1038,8 @@
       window.scrollTo(0, 0);
     });
 
-    resultsList.addEventListener('click', (e) => {
+    // 投稿カード内の放送回・ラジオネームのタップ(検索結果一覧・ランダム表示、どちらのカードでも使う)
+    const handleCardClick = (e) => {
       // 放送回をタップ: その回だけに絞り込む
       const episodeBtn = e.target.closest('.badge-episode[data-episode]');
       if (episodeBtn) {
@@ -1010,13 +1058,21 @@
       state.radioExact = chip.dataset.radioname;
       resetPaging();
       render();
-    });
+    };
+    resultsList.addEventListener('click', handleCardClick);
+    document.getElementById('random-pick-body').addEventListener('click', handleCardClick);
 
     // お題一覧(トップページ)のタップ
     document.getElementById('odai-list').addEventListener('click', (e) => {
       const btn = e.target.closest('.odai-item');
       if (!btn) return;
       applyOdaiFilter(parseFloat(btn.dataset.episode));
+    });
+
+    // ランダム表示の「⟳」: 別の投稿をランダムに選び直す
+    document.getElementById('random-pick-reload').addEventListener('click', () => {
+      state.randomPickRecord = pickRandomRecord();
+      renderRandomPick();
     });
   }
 

@@ -858,6 +858,65 @@ mark {
   transform: scale(0.98);
 }
 
+/* ---------- ランダム表示(トップページにだけ表示) ---------- */
+.random-pick-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.random-pick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.random-pick-heading {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1rem;
+}
+
+.random-pick-reload {
+  flex: none;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.2s ease;
+}
+
+.random-pick-reload:hover {
+  background: var(--accent-soft);
+}
+
+.random-pick-reload:active {
+  transform: rotate(60deg) scale(0.95);
+}
+
+.random-pick-intro {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.random-pick-list {
+  margin-top: 10px;
+}
+
+.random-pick-list .result-card {
+  margin-bottom: 0;
+}
+
 /* ---------- お題一覧(トップページにだけ表示) ---------- */
 .odai-section {
   margin-top: 16px;
