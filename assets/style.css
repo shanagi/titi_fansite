@@ -103,6 +103,7 @@ input {
 .search-bar,
 .filter-panel,
 .latest-banner,
+.latest-note,
 main,
 .random-pick-section,
 .odai-section,
@@ -675,7 +676,7 @@ main {
 
 .latest-note,
 .empty-message {
-  margin: 0 0 12px;
+  margin-bottom: 12px;
   padding: 10px 14px;
   background: var(--bg);
   border-radius: 12px;
@@ -685,6 +686,8 @@ main {
 }
 
 .latest-note {
+  /* 左右の margin は、共通の幅揃えルール(margin-left/right: auto)に任せる(ここで 0 に上書きしない) */
+  margin-top: 16px;
   border-left: 5px solid var(--warm);
 }
 
