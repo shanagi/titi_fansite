@@ -12,6 +12,7 @@
     radioExact: null,
     activeSheet: 'ALL',
     subFilter: null, // { key, value } … 現在の activeSheet の追加の絞り込み(シートを切り替えると null に戻る)
+    cornerKey: null, // CONFIG.cornerGroups の key、または '__other__'。activeSheet が cornerGroups.sheetName のときだけ意味を持つ
     epFrom: null,
     epTo: null,
     sortMode: 'original', // 'original' | 'asc' | 'desc'
@@ -456,6 +457,18 @@
         }
       }
 
+      // 「コーナーで絞り込み」の期間限定/終了済み/その他(CONFIG.cornerGroups 経由の絞り込み)
+      const cg = CONFIG.cornerGroups;
+      if (cg && state.activeSheet === cg.sheetName && state.cornerKey !== null) {
+        const options = allCornerOptions();
+        if (state.cornerKey === '__other__') {
+          if (options.some((opt) => cornerOptionMatches(r, opt))) return false;
+        } else {
+          const opt = options.find((o) => o.key === state.cornerKey);
+          if (opt && !cornerOptionMatches(r, opt)) return false;
+        }
+      }
+
       if (state.radioExact !== null && r.radioName !== state.radioExact) return false;
 
       if (radioQueryNorm && !normalizeText(r.radioName).includes(radioQueryNorm)) return false;
@@ -562,6 +575,19 @@
       }));
   }
 
+  // CONFIG.cornerGroups の「期間限定」「終了済み」をまとめた一覧
+  function allCornerOptions() {
+    const cg = CONFIG.cornerGroups;
+    if (!cg) return [];
+    return (cg.limited || []).concat(cg.ended || []);
+  }
+
+  // 投稿の対象列の値が、コーナー定義(opt)に一致するか。match(正規表現)があればそれで、なければ label と完全一致で判定する。
+  function cornerOptionMatches(record, opt) {
+    const val = getColumnValue(record, CONFIG.cornerGroups.column);
+    return opt.match ? opt.match.test(val) : val === opt.label;
+  }
+
   // 現在の activeSheet に定義されている、state.subFilter.key と一致する追加の絞り込みの定義
   function findActiveSubFilter() {
     if (state.subFilter === null) return null;
@@ -570,17 +596,55 @@
     return (sheetConfig.subFilters || []).find((sub) => sub.key === state.subFilter.key) || null;
   }
 
-  function renderSheetFilterButtons() {
-    const container = document.getElementById('sheet-filter');
-    const buttons = [{ name: 'ALL', label: 'すべて' }].concat(
-      CONFIG.sheets.map((s) => ({ name: s.name, label: s.displayName || s.name }))
-    );
-    container.innerHTML = buttons
-      .map(({ name, label }) => {
-        const active = state.activeSheet === name ? ' is-active' : '';
-        return `<button type="button" class="filter-btn${active}" data-sheet="${escapeHtml(name)}">${escapeHtml(label)}</button>`;
+  // 「コーナーで絞り込み」: すべて / 現行コーナー(常に表示) / 期間限定・終了済み・その他(折りたたみ)
+  function renderCornerFilter() {
+    const container = document.getElementById('corner-filter');
+    const cg = CONFIG.cornerGroups;
+    const otherSheetName = cg ? cg.sheetName : null;
+    const inOtherGroup = cg !== undefined && cg !== null && state.activeSheet === otherSheetName && state.cornerKey !== null;
+
+    const allActive = state.activeSheet === 'ALL' ? ' is-active' : '';
+    const allHtml = `<button type="button" class="filter-btn${allActive}" data-corner-all="1">すべて</button>`;
+
+    const currentSheets = CONFIG.sheets.filter((s) => s.name !== otherSheetName);
+    const currentHtml = currentSheets
+      .map((s) => {
+        const active = state.activeSheet === s.name ? ' is-active' : '';
+        return `<button type="button" class="filter-btn${active}" data-sheet="${escapeHtml(s.name)}">${escapeHtml(s.displayName || s.name)}</button>`;
       })
       .join('');
+
+    let moreHtml = '';
+    if (cg) {
+      const cornerBtn = (opt) => {
+        const active = inOtherGroup && state.cornerKey === opt.key ? ' is-active' : '';
+        return `<button type="button" class="filter-btn${active}" data-corner-key="${escapeHtml(opt.key)}">${escapeHtml(opt.label)}</button>`;
+      };
+      const otherActive = inOtherGroup && state.cornerKey === '__other__' ? ' is-active' : '';
+      const otherHtml = `<button type="button" class="filter-btn${otherActive}" data-corner-key="__other__">${escapeHtml(cg.otherLabel || 'その他')}</button>`;
+
+      moreHtml = `
+        <details class="corner-more"${inOtherGroup ? ' open' : ''}>
+          <summary>期間限定・終了済み・その他のコーナー</summary>
+          <div class="corner-subgroup">
+            <span class="corner-subgroup-label">期間限定</span>
+            <div class="corner-row">${(cg.limited || []).map(cornerBtn).join('')}</div>
+          </div>
+          <div class="corner-subgroup">
+            <span class="corner-subgroup-label">終了済み</span>
+            <div class="corner-row">${(cg.ended || []).map(cornerBtn).join('')}</div>
+          </div>
+          <div class="corner-subgroup">
+            <div class="corner-row">${otherHtml}</div>
+          </div>
+        </details>
+      `;
+    }
+
+    container.innerHTML =
+      `<div class="corner-row corner-row-all">${allHtml}</div>` +
+      `<div class="corner-row corner-row-current">${currentHtml}</div>` +
+      moreHtml;
   }
 
   function updateSortButtonLabel() {
@@ -674,6 +738,7 @@
     state.radioExact = null;
     state.activeSheet = 'ALL';
     state.subFilter = null;
+    state.cornerKey = null;
     state.epFrom = null;
     state.epTo = null;
     state.sortMode = 'original';
@@ -683,7 +748,7 @@
       document.getElementById(id).value = '';
     });
     updateSortButtonLabel();
-    renderSheetFilterButtons();
+    renderCornerFilter();
     render();
   }
 
@@ -696,6 +761,7 @@
     state.radioExact = null;
     state.activeSheet = cfg.sheetName;
     state.subFilter = null;
+    state.cornerKey = null;
     state.epFrom = epNumeric;
     state.epTo = epNumeric;
     resetPaging();
@@ -703,7 +769,7 @@
     document.getElementById('radioname-input').value = '';
     document.getElementById('episode-from').value = String(epNumeric);
     document.getElementById('episode-to').value = String(epNumeric);
-    renderSheetFilterButtons();
+    renderCornerFilter();
     render();
     window.scrollTo(0, 0);
   }
@@ -715,7 +781,7 @@
     const epTo = document.getElementById('episode-to');
     const sortToggle = document.getElementById('sort-toggle');
     const loadMore = document.getElementById('load-more');
-    const sheetFilter = document.getElementById('sheet-filter');
+    const cornerFilter = document.getElementById('corner-filter');
     const activeFilters = document.getElementById('active-filters');
     const resetAllBtn = document.getElementById('reset-all');
     const resultsList = document.getElementById('results-list');
@@ -757,12 +823,23 @@
       render();
     });
 
-    sheetFilter.addEventListener('click', (e) => {
+    cornerFilter.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
-      state.activeSheet = btn.dataset.sheet;
+      if (btn.dataset.cornerAll) {
+        state.activeSheet = 'ALL';
+        state.cornerKey = null;
+      } else if (btn.dataset.sheet) {
+        state.activeSheet = btn.dataset.sheet;
+        state.cornerKey = null;
+      } else if (btn.dataset.cornerKey) {
+        state.activeSheet = CONFIG.cornerGroups.sheetName;
+        state.cornerKey = btn.dataset.cornerKey;
+      } else {
+        return;
+      }
       state.subFilter = null;
-      renderSheetFilterButtons();
+      renderCornerFilter();
       resetPaging();
       render();
     });
@@ -860,7 +937,7 @@
   function init() {
     setupEvents();
     updateSortButtonLabel();
-    renderSheetFilterButtons();
+    renderCornerFilter();
 
     Promise.all([
       Promise.all(CONFIG.sheets.map(loadSheet)),

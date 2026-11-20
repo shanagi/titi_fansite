@@ -29,7 +29,6 @@
 <div class="search-bar" role="search">
   <input id="keyword-input" type="search" placeholder="キーワード検索(スペースでAND)" aria-label="キーワード検索">
   <div class="search-row">
-    <input id="radioname-input" type="search" placeholder="ラジオネーム検索" aria-label="ラジオネーム検索">
     <button id="reset-all" class="reset-btn" type="button" title="検索・絞り込みをすべてリセット" aria-label="検索・絞り込みをすべてリセット" hidden>リセット</button>
   </div>
 </div>
@@ -40,14 +39,25 @@
 <details id="filter-panel" class="filter-panel">
   <summary>絞り込み</summary>
   <div class="filter-panel-body">
-    <div class="filter-group" id="sheet-filter" role="group" aria-label="シート別絞り込み"></div>
-    <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
-    <div class="filter-group episode-range">
-      <label for="episode-from">放送回</label>
-      <input id="episode-from" type="number" inputmode="numeric" placeholder="から" aria-label="放送回(から)">
-      <span>〜</span>
-      <input id="episode-to" type="number" inputmode="numeric" placeholder="まで" aria-label="放送回(まで)">
-      <span>回</span>
+    <div class="filter-section">
+      <h3 class="filter-section-heading">コーナーで絞り込み</h3>
+      <div class="filter-group" id="corner-filter" role="group" aria-label="コーナーで絞り込み"></div>
+      <div class="filter-group sub-filter" id="sub-filter" aria-label="追加の絞り込み" hidden></div>
+    </div>
+    <div class="filter-section">
+      <h3 class="filter-section-heading">放送回で絞り込み</h3>
+      <div class="filter-group episode-range">
+        <input id="episode-from" type="number" inputmode="numeric" placeholder="から" aria-label="放送回(から)">
+        <span>〜</span>
+        <input id="episode-to" type="number" inputmode="numeric" placeholder="まで" aria-label="放送回(まで)">
+        <span>回</span>
+      </div>
+    </div>
+    <div class="filter-section">
+      <h3 class="filter-section-heading">ラジオネームで絞り込み</h3>
+      <div class="filter-group">
+        <input id="radioname-input" type="search" placeholder="ラジオネーム検索" aria-label="ラジオネーム検索">
+      </div>
     </div>
   </div>
 </details>

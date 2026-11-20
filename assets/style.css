@@ -241,16 +241,12 @@ main,
   cursor: pointer;
 }
 
-/* ラジオネーム欄と、その右に並ぶリセットボタン(リセットは検索・絞り込み中だけ表示) */
+/* リセットボタン(検索・絞り込み中だけ表示)。右寄せにする */
 .search-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-}
-
-.search-row input[type="search"] {
-  flex: 1;
-  min-width: 0;
 }
 
 .reset-btn {
@@ -323,10 +319,84 @@ main,
   margin-bottom: 12px;
 }
 
-#sheet-filter {
+/* 絞り込みパネル内の3つの区分(コーナー/放送回/ラジオネーム) */
+.filter-section + .filter-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.filter-section-heading {
+  margin: 0 0 8px;
+  font-family: var(--font-head);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.corner-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.corner-row-all {
+  margin-bottom: 8px;
+}
+
+.corner-row-current {
+  margin-bottom: 4px;
+}
+
+/* 期間限定・終了済み・その他のコーナー(折りたたみ式の入れ子) */
+.corner-more {
+  margin-top: 10px;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.corner-more summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 6px 0;
+  list-style: none;
+}
+
+.corner-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.corner-more summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  margin-right: 8px;
+  border-style: solid;
+  border-width: 4px 0 4px 7px;
+  border-color: transparent transparent transparent var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.corner-more[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.corner-subgroup {
+  margin-bottom: 10px;
+}
+
+.corner-subgroup:last-child {
+  margin-bottom: 4px;
+}
+
+.corner-subgroup-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .filter-btn {
