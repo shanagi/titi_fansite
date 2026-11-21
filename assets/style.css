@@ -886,8 +886,12 @@ mark {
 
 .random-pick-reload {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: var(--tap-min);
   height: var(--tap-min);
+  padding: 0;
   border: 1px solid var(--accent);
   border-radius: 999px;
   background: var(--bg);
@@ -896,6 +900,12 @@ mark {
   line-height: 1;
   cursor: pointer;
   transition: background-color 0.15s ease, transform 0.2s ease;
+}
+
+.random-pick-reload-icon {
+  /* 「⟳」の字形は、文字の基準枠の中で実際の線がやや下に寄っているため、見た目で中央に合わせる */
+  display: inline-block;
+  transform: translateY(-3px);
 }
 
 .random-pick-reload:hover {

@@ -494,11 +494,15 @@ def main():
         )
         if marked_count != expect_marked or not all_marked or all_count <= marked_count:
             fail(f"「お眼鏡賞のみ表示」が仕様どおりに絞り込めていません: 全体={all_count} お眼鏡賞={marked_count}(期待{expect_marked}) 印のみ={all_marked}")
-        page.click('.filter-btn-sub[data-subfilter="mark"]')  # off に戻す
+        # サブフィルター選択時も、検索窓下のチップに表示され、「解除」で元に戻せる
+        sub_chip_text = (page.text_content("#active-filters") or "").strip()
+        if "お眼鏡賞のみ表示" not in sub_chip_text:
+            fail(f"サブフィルター選択時のチップに「お眼鏡賞のみ表示」がありません: {sub_chip_text!r}")
+        page.click('#active-filters .active-chip-clear[data-clear="subfilter"]')
         page.wait_for_timeout(300)
-        if sub_count() != all_count:
-            fail("「お眼鏡賞のみ表示」をもう一度押しても、offに戻りません。")
-        print(f"OK: ラジ父大喜利「お眼鏡賞のみ表示」({marked_count}件 / 全体{all_count}件)")
+        if sub_count() != all_count or page.query_selector('.filter-btn-sub.is-active[data-subfilter="mark"]'):
+            fail("サブフィルターのチップの「解除」を押しても、お眼鏡賞のみ表示がoffに戻りません。")
+        print(f"OK: ラジ父大喜利「お眼鏡賞のみ表示」({marked_count}件 / 全体{all_count}件、チップ表示・解除も確認)")
 
         # 俺にもありました → 「おまいは俺かのみ表示」(on/off)
         hdr, rows = fetch_rows("俺にもありました")
@@ -528,9 +532,15 @@ def main():
             got = sub_count()
             if got != expect[label]:
                 fail(f"韻豆「正解」の絞り込み({label})の件数が違います: {got}(期待{expect[label]})")
-        page.click('.filter-btn-sub[data-subfilter="answer"][data-subvalue=""]')  # すべてに戻す
+            # value型のサブフィルターも、チップに「ラベル：選択肢」の形で表示される(「その他」はoptionsのlabelどおり)
+            sub_chip_text = (page.text_content("#active-filters") or "").strip()
+            if f"正解：{label}" not in sub_chip_text:
+                fail(f"韻豆「正解」({label})選択時のチップが違います: {sub_chip_text!r}")
+        page.click('#active-filters .active-chip-clear[data-clear="subfilter"]')  # チップの解除で「すべて」に戻す
         page.wait_for_timeout(300)
-        print(f"OK: 韻豆「正解」の絞り込み (韻豆{expect['韻豆']}件 / 偽韻豆{expect['偽韻豆']}件 / その他{expect['その他']}件)")
+        if page.query_selector('.filter-btn-sub.is-active[data-subfilter="answer"]:not([data-subvalue=""])'):
+            fail("韻豆「正解」のチップを解除しても、「すべて」に戻っていません。")
+        print(f"OK: 韻豆「正解」の絞り込み (韻豆{expect['韻豆']}件 / 偽韻豆{expect['偽韻豆']}件 / その他{expect['その他']}件、チップ表示・解除も確認)")
 
         # ガクにもわかりますか？ → 「わかりますか？」で絞り込み(わかる・わからない)
         hdr, rows = fetch_rows("ガクにもわかりますか？")

@@ -772,11 +772,24 @@
     return sheetConfig ? sheetConfig.displayName || sheetConfig.name : state.activeSheet;
   }
 
+  // 現在選ばれているサブフィルター(お眼鏡賞のみ表示、正解：韻豆、など)の表示名。選ばれていなければ null
+  function subFilterActiveLabel() {
+    if (state.subFilter === null) return null;
+    const sub = findActiveSubFilter();
+    if (!sub) return null;
+    if (sub.type === 'mark') return sub.label;
+    const options = sub.type === 'dynamic-value' ? dynamicSubFilterOptions(state.activeSheet, sub) : sub.options;
+    const opt = (options || []).find((o) => o.value === state.subFilter.value);
+    return `${sub.label}：${opt ? opt.label : state.subFilter.value}`;
+  }
+
   function renderActiveFilters() {
     const box = document.getElementById('active-filters');
     const items = [];
     const cornerLabel = cornerActiveLabel();
     if (cornerLabel !== null) items.push({ key: 'corner', text: `コーナー：${cornerLabel}` });
+    const subLabel = subFilterActiveLabel();
+    if (subLabel !== null) items.push({ key: 'subfilter', text: subLabel });
     const epText = episodeRangeText();
     if (epText !== null) items.push({ key: 'episode', text: epText });
     if (state.radioExact !== null) {
@@ -1000,6 +1013,8 @@
         state.otherThemeValue = null;
         state.subFilter = null;
         renderCornerFilter();
+      } else if (key === 'subfilter') {
+        state.subFilter = null;
       } else {
         return;
       }
